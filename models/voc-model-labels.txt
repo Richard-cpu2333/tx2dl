@@ -1,0 +1,4 @@
+BACKGROUND
+car
+pedestrian
+cyclist
