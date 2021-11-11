@@ -1,4 +1,4 @@
-# Single Shot MultiBox Detector Implementation in Pytorch
+# YOLOF && SSD Implementation in Pytorch
 
 This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) and [Detectron](https://github.com/facebookresearch/Detectron) and [YOLOF](https://github.com/chensnathan/YOLOF).
 The design goal is modularity and extensibility.
@@ -7,7 +7,6 @@ Currently, it has MobileNetV2, EfficientNet, MobileDet_gpu and VGG based SSD/SSD
 
 It also has out-of-box support for retraining on Google Open Images dataset.
 
-![Example of Mobile SSD](readme_ssd_example.jpg  "Example of Mobile SSD(Courtesy of https://www.pexels.com/@mirit-assaf-299757 for the image.")
 
 ## Dependencies
 1. Python 3.6+
@@ -227,8 +226,6 @@ wget -P models https://storage.googleapis.com/models-hao/gun_model_2.21.pth
 wget -P models https://storage.googleapis.com/models-hao/open-images-model-labels.txt
 python run_ssd_example.py mb1-ssd models/gun_model_2.21.pth models/open-images-model-labels.txt ~/Downloads/big.JPG
 ```
-
-![Example of Gun Detection](gun.jpg)
 
 
 If you manage to get more annotated data, the accuracy could become much higher.
