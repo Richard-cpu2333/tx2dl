@@ -1,9 +1,9 @@
 # Single Shot MultiBox Detector Implementation in Pytorch
 
-This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [ssd.pytorch](https://github.com/amdegroot/ssd.pytorch) and [Detectron](https://github.com/facebookresearch/Detectron).
+This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) and [Detectron](https://github.com/facebookresearch/Detectron) and [YOLOF](https://github.com/chensnathan/YOLOF).
 The design goal is modularity and extensibility.
 
-Currently, it has MobileNetV1, MobileNetV2, and VGG based SSD/SSD-Lite implementations. 
+Currently, it has MobileNetV2, EfficientNet, MobileDet_gpu and VGG based SSD/SSD-Lite implementations. 
 
 It also has out-of-box support for retraining on Google Open Images dataset.
 
@@ -153,6 +153,37 @@ The code to re-produce the model:
 wget -P models https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
 python train_ssd.py --datasets ~/data/VOC0712/VOC2007/ ~/data/VOC0712/VOC2012/ --validation_dataset ~/data/VOC0712/test/VOC2007/ --net vgg16-ssd --base_net models/vgg16_reducedfc.pth  --batch_size 24 --num_epochs 200 --scheduler "multi-step” —-milestones “120,160”
 ```
+
+### MobileDet SSD
+
+URL: https://www.aliyundrive.com/s/6CGF25n5iHP
+
+```
+Average Precision Per-class:
+aeroplane: 0.6973327307871002
+bicycle: 0.7823755921687233
+bird: 0.6342429230125619
+boat: 0.5478160937380846
+bottle: 0.3564069147093762
+bus: 0.7882037885117419
+car: 0.7444122242934775
+cat: 0.8198865557991936
+chair: 0.5378973422880109
+cow: 0.6186076149254742
+diningtable: 0.7369559500950861
+dog: 0.7848265495754562
+horse: 0.8222948787839229
+motorbike: 0.8057808854619948
+person: 0.7176976451996411
+pottedplant: 0.42802932547480066
+sheep: 0.6259124005994047
+sofa: 0.7840368059271103
+train: 0.8331588002612781
+tvmonitor: 0.6555051795079904
+Average Precision Across All Classes:0.6860690100560214
+```
+
+
 ## Training
 
 ```bash
