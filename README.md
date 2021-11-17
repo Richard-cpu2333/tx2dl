@@ -1,11 +1,11 @@
 # YOLOF && SSD Implementation in Pytorch
 
-This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) and [Detectron](https://github.com/facebookresearch/Detectron) and [YOLOF](https://github.com/chensnathan/YOLOF).
+This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) , [Detectron](https://github.com/facebookresearch/Detectron) and [YOLOF](https://github.com/chensnathan/YOLOF).
 The design goal is modularity and extensibility.
 
 Currently, it has MobileNetV2, EfficientNet, MobileDet_gpu and VGG based SSD/SSD-Lite implementations. 
 
-It also has out-of-box support for retraining on Google Open Images dataset.
+
 
 
 ## Dependencies
@@ -308,7 +308,36 @@ python train_ssd.py --datasets ~/data/VOC0712/VOC2007/ ~/data/VOC0712/VOC2012/ -
 python eval_ssd.py --net vgg16-ssd  --dataset ~/data/VOC0712/test/VOC2007/ --trained_model models/vgg16-ssd-Epoch-115-Loss-2.819455094383535.pth --label_file models/voc-model-labels.txt
 ```
 
-## TODO
+## TOO
 
-1. Resnet34 Based Model.
-2. BatchNorm Fusion.
+1. NAS
+2. Backbone.
+
+
+
+# Cite
+
+A simple, fast, and efficient object detector **without** FPN.
+
+- The [`cvpods`](https://github.com/Megvii-BaseDetection/cvpods) version can be found in https://github.com/megvii-model/YOLOF.
+- The neat and re-organized Detectron2 version of YOLOF is available at [https://github. com/chensnathan/YOLOF](https://github.com/chensnathan/YOLOF).
+
+```tex
+@inproceedings{chen2021you,
+  title={You Only Look One-level Feature},
+  author={Chen, Qiang and Wang, Yingming and Yang, Tong and Zhang, Xiangyu and Cheng, Jian and Sun, Jian},
+  booktitle={IEEE Conference on Computer Vision and Pattern Recognition},
+  year={2021}
+}
+
+@article{Xu2021TEYOLOFTA,
+  title={TE-YOLOF: Tiny and efficient YOLOF for blood cell detection},
+  author={Fanxin Xu and Xiangkui Li and Hang Yang and Yali Wang and Wei Xiang},
+  journal={ArXiv},
+  year={2021},
+  volume={abs/2108.12313}
+}
+```
+
+
+
