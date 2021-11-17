@@ -38,6 +38,8 @@ class MultiboxLoss(nn.Module):
             mask = box_utils.hard_negative_mining(loss, labels, self.neg_pos_ratio)
 
         confidence = confidence[mask, :]
+        # print(labels.shape, labels[mask].shape)
+        # print(labels.dtype, labels[mask].dtype)  ## int64
         classification_loss = F.cross_entropy(confidence.reshape(-1, num_classes), labels[mask], size_average=False)
         pos_mask = labels > 0
         predicted_locations = predicted_locations[pos_mask, :].reshape(-1, 4)

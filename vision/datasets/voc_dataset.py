@@ -50,9 +50,6 @@ class VOCDataset:
             'cow', 'diningtable', 'dog', 'horse',
             'motorbike', 'person', 'pottedplant',
             'sheep', 'sofa', 'train', 'tvmonitor')
-            # self.class_names = ('car', 'pedestrian', 'cyclist')
-
-
 
 
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
@@ -68,6 +65,8 @@ class VOCDataset:
             image, boxes, labels = self.transform(image, boxes, labels)
         if self.target_transform:
             boxes, labels = self.target_transform(boxes, labels)
+            # print(image.shape, boxes.shape, labels.shape)
+            # print(image.device, boxes.device, labels.device)
         return image, boxes, labels
 
     def get_image(self, index):
@@ -120,7 +119,7 @@ class VOCDataset:
                 np.array(is_difficult, dtype=np.uint8))
 
     def _read_image(self, image_id):
-        image_file = self.root / f"JPEGImages/{image_id}.png"
+        image_file = self.root / f"JPEGImages/{image_id}.jpg"
         image = cv2.imread(str(image_file))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return image

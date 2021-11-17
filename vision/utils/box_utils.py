@@ -82,21 +82,7 @@ def generate_ssd_priors(specs: List[SSDSpec], image_size, clamp=True) -> torch.T
 
 def convert_locations_to_boxes(locations, priors, center_variance,
                                size_variance):
-    """Convert regressional location results of SSD into boxes in the form of (center_x, center_y, h, w).
 
-    The conversion:
-        $$predicted\_center * center_variance = \frac {real\_center - prior\_center} {prior\_hw}$$
-        $$exp(predicted\_hw * size_variance) = \frac {real\_hw} {prior\_hw}$$
-    We do it in the inverse direction here.
-    Args:
-        locations (batch_size, num_priors, 4): the regression output of SSD. It will contain the outputs as well.
-        priors (num_priors, 4) or (batch_size/1, num_priors, 4): prior boxes.
-        center_variance: a float used to change the scale of center.
-        size_variance: a float used to change of scale of size.
-    Returns:
-        boxes:  priors: [[center_x, center_y, h, w]]. All the values
-            are relative to the image size.
-    """
     # priors can have one dimension less.
     if priors.dim() + 1 == locations.dim():
         priors = priors.unsqueeze(0)
@@ -148,6 +134,34 @@ def iou_of(boxes0, boxes1, eps=1e-5):
     area1 = area_of(boxes1[..., :2], boxes1[..., 2:])
     return overlap_area / (area0 + area1 - overlap_area + eps)
 
+def assign_anchors(gt_boxes, gt_labels, center_form_anchors):
+    # print(f"gt_boxes's devices:{gt_boxes.device}")
+    # print(f"gt_labels'devices:{gt_labels.device}")
+    # print(f"center_form_anchors'device:{center_form_anchors.device}")
+    # size: num_priors x num_targets
+    cost_bbox_anchors = torch.cdist(center_form_anchors, gt_boxes, p=1)
+    # size: 4 x num_targets
+    _, f4_anchor_per_target_index = torch.topk(cost_bbox_anchors, k=4, dim=0, largest=False)
+    # print(f4_anchor_per_target_index)
+    # print(f"length of f4: {len(f4_anchor_per_target_index)}")
+    best_target_per_anchor_index = torch.zeros(len(cost_bbox_anchors), dtype=torch.int64)
+    for target_index, anchor_index in enumerate(f4_anchor_per_target_index.transpose(0,1)):
+        # print(f"anchor_index.shape: {anchor_index.shape}")
+        for i in anchor_index:
+            # print(f"i for: {i}")
+            best_target_per_anchor_index[i] = target_index
+
+    labels = torch.zeros(len(best_target_per_anchor_index), dtype=torch.int64)
+    for i,j in enumerate(best_target_per_anchor_index):
+        if j < 0:
+            labels[i] = 0
+        else:
+            labels[i] = gt_labels[j]
+
+    boxes = gt_boxes[best_target_per_anchor_index]
+    print(labels.dtype)
+    # print(f"Postive anchor sum: {torch.sum(labels != 0)}")
+    return boxes, labels
 
 def assign_priors(gt_boxes, gt_labels, corner_form_priors,
                   iou_threshold):

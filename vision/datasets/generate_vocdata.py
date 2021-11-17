@@ -28,8 +28,8 @@ def main(filename):
 
     # get image names
     for filename in os.listdir("./JPEGImages"):
-        if filename.endswith(".png"):
-            img = filename.rstrip('.png')
+        if filename.endswith(".jpg"):
+            img = filename.rstrip('.jpg')
             imgnames.append(img)
 
     print("Labels:", labels, "imgcnt:", len(imgnames))

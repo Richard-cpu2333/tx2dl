@@ -7,24 +7,21 @@ import itertools
 import torch
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
-from vision.nn.mobiledet_gpu import MobileDetGPU
 
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
 from vision.ssd.ssd import MatchPrior
-from vision.ssd.vgg_ssd import create_vgg_ssd
+# from vision.ssd.vgg_ssd import create_vgg_ssd
 from vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd
-from vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite
-from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite
-from vision.ssd.mobilenetv3_ssd_lite import create_mobilenetv3_large_ssd_lite, create_mobilenetv3_small_ssd_lite
-from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite
-from vision.ssd.mobiledet_ssd import create_mobiledet_ssd
+# from vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite
+# from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite
+# from vision.ssd.mobilenetv3_ssd_lite import create_mobilenetv3_large_ssd_lite, create_mobilenetv3_small_ssd_lite
+# from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite
 from vision.datasets.voc_dataset import VOCDataset
 from vision.datasets.open_images import OpenImagesDataset
 from vision.nn.multibox_loss import MultiboxLoss
-from vision.ssd.config import vgg_ssd_config
+# from vision.ssd.config import vgg_ssd_config
 from vision.ssd.config import mobilenetv1_ssd_config
-from vision.ssd.config import mobiledet_ssd_config
-from vision.ssd.config import squeezenet_ssd_config
+# from vision.ssd.config import squeezenet_ssd_config
 from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
 
 parser = argparse.ArgumentParser(
@@ -40,7 +37,7 @@ parser.add_argument('--balance_data', action='store_true',
 
 
 parser.add_argument('--net', default="vgg16-ssd",
-                    help="The network architecture, it can be mb1-ssd, mb1-ssd-lite, mb2-ssd-lite, mb3-large-ssd-lite, mb3-small-ssd-lite or vgg16-ssd.")
+                    help="The network architecture, it can be mb1-ssd, mb1-lite-ssd, mb2-ssd-lite, mb3-large-ssd-lite, mb3-small-ssd-lite or vgg16-ssd.")
 parser.add_argument('--freeze_base_net', action='store_true',
                     help="Freeze base net layers.")
 parser.add_argument('--freeze_net', action='store_true',
@@ -88,7 +85,7 @@ parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
 parser.add_argument('--num_epochs', default=120, type=int,
                     help='the number epochs')
-parser.add_argument('--num_workers', default=8, type=int,
+parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--validation_epochs', default=5, type=int,
                     help='the number epochs')
@@ -124,6 +121,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
 
         optimizer.zero_grad()
         confidence, locations = net(images)
+        print(f"confidence'shape:{confidence.shape} and locations' shape:{locations.shape}")
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
         loss = regression_loss + classification_loss
         loss.backward()
@@ -175,37 +173,15 @@ if __name__ == '__main__':
     timer = Timer()
 
     logging.info(args)
-    if args.net == 'vgg16-ssd':
-        create_net = create_vgg_ssd
-        config = vgg_ssd_config
-    elif args.net == 'mbd-ssd':
-        create_net = create_mobiledet_ssd
-        config = mobiledet_ssd_config
-    elif args.net == 'mb1-ssd':
+    if args.net == 'mb1-ssd':
         create_net = create_mobilenetv1_ssd
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mb1-ssd-lite':
-        create_net = create_mobilenetv1_ssd_lite
-        config = mobilenetv1_ssd_config
-    elif args.net == 'sq-ssd-lite':
-        create_net = create_squeezenet_ssd_lite
-        config = squeezenet_ssd_config
-    elif args.net == 'mb2-ssd-lite':
-        create_net = lambda num: create_mobilenetv2_ssd_lite(num, width_mult=args.mb2_width_mult)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mb3-large-ssd-lite':
-        create_net = lambda num: create_mobilenetv3_large_ssd_lite(num)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mb3-small-ssd-lite':
-        create_net = lambda num: create_mobilenetv3_small_ssd_lite(num)
         config = mobilenetv1_ssd_config
     else:
         logging.fatal("The net type is wrong.")
         parser.print_help(sys.stderr)
         sys.exit(1)
     train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std)
-    target_transform = MatchPrior(config.priors, config.center_variance,
-                                  config.size_variance, 0.5)
+    target_transform = MatchPrior(config.priors, config.center_variance,config.size_variance, 0.5)
 
     test_transform = TestTransform(config.image_size, config.image_mean, config.image_std)
 
@@ -213,8 +189,7 @@ if __name__ == '__main__':
     datasets = []
     for dataset_path in args.datasets:
         if args.dataset_type == 'voc':
-            dataset = VOCDataset(dataset_path, transform=train_transform,
-                                 target_transform=target_transform)
+            dataset = VOCDataset(dataset_path, transform=train_transform, target_transform=target_transform)
             label_file = os.path.join(args.checkpoint_folder, "voc-model-labels.txt")
             store_labels(label_file, dataset.class_names)
             num_classes = len(dataset.class_names)
