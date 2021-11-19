@@ -33,7 +33,7 @@ class UniformLoss(nn.Module):
         '''
 
         self.anchors = batch_anchors
-        self.anchors.to(device)
+        self.device = device
 
 
     def forward(self, confidence, pred_anchor_deltas, labels, gt_boxes):
@@ -47,7 +47,7 @@ class UniformLoss(nn.Module):
         
 
         all_anchors = [self.anchors for _ in range(N)]
-        all_anchors = cat(all_anchors)  ## torch.Size([12800, 4])
+        all_anchors = cat(all_anchors).to(self.device)  ## torch.Size([12800, 4])
         
         box2box_transform = YOLOFBox2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0))
         pred_boxes = box2box_transform.apply_deltas(
@@ -89,68 +89,3 @@ class UniformLoss(nn.Module):
         num_pos = gt_locations.size(0)
         return classification_loss/num_pos, smooth_l1_loss/num_pos
 
-        # ious = []
-        # pos_ious = []
-        # for i in range(N):
-        #     src_idx, tgt_idx = indices[i]
-        #     iou = iou_of(predicted_boxes[i, ...], gt_boxes)
-        #     if iou.numel() == 0:
-        #         max_iou = iou.new_full((iou.size(0),), 0)
-        #     else:
-        #         max_iou = iou.max(dim=1)[0]
-        #     a_iou = iou_of(anchors[i].tensor,
-        #                    gt_boxes[i].gt_boxes.tensor)
-        #     if a_iou.numel() == 0:
-        #         pos_iou = a_iou.new_full((0,), 0)
-        #     else:
-        #         pos_iou = a_iou[src_idx, tgt_idx]
-        #     ious.append(max_iou)
-        #     pos_ious.append(pos_iou)
-        # ious = torch.cat(ious)
-        # ignore_idx = ious > 0.7
-        # pos_ious = torch.cat(pos_ious)
-        # pos_ignore_idx = pos_ious < 0.15
-
-        # src_idx = torch.cat(
-        #     [src + idx * anchors[0].tensor.shape[0] for idx, (src, _) in
-        #      enumerate(indices)])
-        # gt_classes = torch.full(pred_class_logits.shape[:1],
-        #                         NUM_CLASSES,
-        #                         dtype=torch.int64,
-        #                         device=pred_class_logits.device)
-        # gt_classes[ignore_idx] = -1
-        # target_classes_o = torch.cat(
-        #     [t[J] for t, (_, J) in zip(gt_labels, indices)])
-        # target_classes_o[pos_ignore_idx] = -1
-        # gt_classes[src_idx] = target_classes_o
-
-        # valid_idxs = gt_classes >= 0
-        # foreground_idxs = (gt_classes >= 0) & (gt_classes != NUM_CLASSES)
-        # num_foreground = foreground_idxs.sum()
-
-        # gt_classes_target = torch.zeros_like(pred_class_logits)
-        # gt_classes_target[foreground_idxs, gt_classes[foreground_idxs]] = 1
-
-        # if comm.get_world_size() > 1:
-        #     dist.all_reduce(num_foreground)
-        # num_foreground = num_foreground * 1.0 / comm.get_world_size()
-
-        # # cls loss
-        # loss_cls = sigmoid_focal_loss_jit(
-        #     pred_class_logits[valid_idxs],
-        #     gt_classes_target[valid_idxs],
-        #     alpha=2.0,
-        #     gamma=0.25,
-        #     reduction="sum",
-        # )
-        # # reg loss
-        # target_boxes = torch.cat(
-        #     [t[i] for t, (_, i) in zip(gt_boxes, indices)],
-        #     dim=0)
-        # target_boxes = target_boxes[~pos_ignore_idx]
-        # matched_predicted_boxes = predicted_boxes.reshape(-1, 4)[
-        #     src_idx[~pos_ignore_idx]]
-        # loss_box_reg = giou_loss(
-        #     matched_predicted_boxes, target_boxes, reduction="sum")
-
-        # return loss_cls / max(1, num_foreground), loss_box_reg / max(1, num_foreground)

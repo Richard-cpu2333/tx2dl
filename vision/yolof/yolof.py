@@ -1,7 +1,6 @@
 import torch
 from torch import Tensor, nn
 # import torch.distributed as dist
-import math
 import itertools
 import copy
 import logging
@@ -58,17 +57,17 @@ class YOLOF(nn.Module):
         torch.save(self.state_dict(), model_path)
 
 
-    # def init_from_backbone(self, model):
-    #     self.backbone.load_state_dict(torch.load(model, map_location=lambda storage, loc: storage), strict=True)
-    #     self.encoder.apply(_xavier_init_)
-    #     self.decoder.apply(_xavier_init_)
+    def init_from_base_net(self, model):
+        self.backbone.load_state_dict(torch.load(model, map_location=lambda storage, loc: storage), strict=True)
+        self.encoder.apply(_xavier_init_)
+        self.decoder.apply(_xavier_init_)
 
-    # def init_from_pretrained_yolof(self, model):
-    #     state_dict = torch.load(model, map_location=lambda storage, loc: storage)
-    #     state_dict = {k: v for k, v in state_dict.items() if not (k.startswith("classification_headers") or k.startswith("regression_headers"))}
-    #     model_dict = self.state_dict()
-    #     model_dict.update(state_dict)
-    #     self.load_state_dict(model_dict)
+    def init_from_pretrained_yolof(self, model):
+        state_dict = torch.load(model, map_location=lambda storage, loc: storage)
+        state_dict = {k: v for k, v in state_dict.items() if not (k.startswith("encoder") or k.startswith("decoder"))}
+        model_dict = self.state_dict()
+        model_dict.update(state_dict)
+        self.load_state_dict(model_dict)
 
     def init(self):
         self.backbone.apply(_xavier_init_)

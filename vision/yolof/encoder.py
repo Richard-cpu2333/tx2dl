@@ -7,10 +7,10 @@ import torch.nn as nn
 class DilatedEncoder(nn.Module):
 
     # def __init__(self, config, input_shape: List[ShapeSpec]):
-    def __init__(self):
+    def __init__(self, in_channels=384):
         super(DilatedEncoder, self).__init__()
         # fmt: off
-        self.in_channels = 384
+        self.in_channels = in_channels
         self.encoder_channels = 512
         self.block_mid_channels = 128
         self.num_residual_blocks = 4

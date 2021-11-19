@@ -159,7 +159,7 @@ def assign_anchors(gt_boxes, gt_labels, center_form_anchors):
             labels[i] = gt_labels[j]
 
     boxes = gt_boxes[best_target_per_anchor_index]
-    print(labels.dtype)
+    # print(labels.dtype)
     # print(f"Postive anchor sum: {torch.sum(labels != 0)}")
     return boxes, labels
 

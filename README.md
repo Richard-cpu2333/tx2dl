@@ -1,6 +1,6 @@
 # YOLOF && SSD Implementation in Pytorch
 
-This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) , [Detectron](https://github.com/facebookresearch/Detectron) and [YOLOF](https://github.com/chensnathan/YOLOF).
+This repo implements [SSD (Single Shot MultiBox Detector)](https://arxiv.org/abs/1512.02325). The implementation is heavily influenced by the projects [pytorch-ssd](https://github.com/qfgaohao/pytorch-ssd) , [NVIDIA Apex](https://github.com/NVIDIA/apex) and [YOLOF](https://github.com/chensnathan/YOLOF).
 The design goal is modularity and extensibility.
 
 Currently, it has MobileNetV2, EfficientNet, MobileDet_gpu and VGG based SSD/SSD-Lite implementations. 
@@ -15,24 +15,27 @@ Currently, it has MobileNetV2, EfficientNet, MobileDet_gpu and VGG based SSD/SSD
 4. Caffe2
 5. Pandas
 6. Boto3 if you want to train models on the Google OpenImages Dataset.
+7. [Apex](https://github.com/NVIDIA/apex)
+8. [Jstat](https://github.com/rbonghi/jetson_stats)
+9. [torchstat](https://github.com/Swall0w/torchstat)
+10. [Mish-cuda](https://github.com/thomasbrandon/mish-cuda)
+11. [jetson_stats](https://github.com/rbonghi/jetson_stats)
+
+
+
+## How to Install
+
+```shell
+git clone https://github.com/NVIDIA/apex
+cd apex
+pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" ./
+```
+
+
+
+## ![Support-Matrix-NVIDIA-Deep-Learning-TensorRT-Documentation](/home/oem/Pictures/Support-Matrix-NVIDIA-Deep-Learning-TensorRT-Documentation.png)
 
 ## Run the demo
-### Run the live MobilenetV1 SSD demo
-
-```bash
-wget -P models https://storage.googleapis.com/models-hao/mobilenet-v1-ssd-mp-0_675.pth
-wget -P models https://storage.googleapis.com/models-hao/voc-model-labels.txt
-python run_ssd_live_demo.py mb1-ssd models/mobilenet-v1-ssd-mp-0_675.pth models/voc-model-labels.txt 
-```
-### Run the live demo in Caffe2
-
-```bash
-wget -P models https://storage.googleapis.com/models-hao/mobilenet_v1_ssd_caffe2/mobilenet-v1-ssd_init_net.pb
-wget -P models https://storage.googleapis.com/models-hao/mobilenet_v1_ssd_caffe2/mobilenet-v1-ssd_predict_net.pb
-python run_ssd_live_caffe2.py models/mobilenet-v1-ssd_init_net.pb models/mobilenet-v1-ssd_predict_net.pb models/voc-model-labels.txt 
-```
-
-You can see a decent speed boost by using Caffe2.
 
 ### Run the live MobileNetV2 SSD Lite demo
 
@@ -48,149 +51,50 @@ the corresponding Pytorch and Caffe2 models.
 
 You may notice MobileNetV2 SSD/SSD-Lite is slower than MobileNetV1 SSD/Lite on PC. However, MobileNetV2 is faster on mobile devices.
 
+### Run the live MobileNetV2 YOLOF Lite demo
+
+```
+
+```
+
+
+
 ## Pretrained Models
 
-### Mobilenet V1 SSD
+### 
 
-URL: https://storage.googleapis.com/models-hao/mobilenet-v1-ssd-mp-0_675.pth
+| Model                | URL                                                          | SSD  | YOLOF |
+| -------------------- | ------------------------------------------------------------ | ---- | ----- |
+| Mobilenet V1 SSD     | https://storage.googleapis.com/models-hao/mobilenet-v1-ssd-mp-0_675.pth |      |       |
+| MobileNetV2 SSD-Lite | https://storage.googleapis.com/models-hao/mb2-ssd-lite-mp-0_686.pth |      |       |
+| VGG SSD              | https://storage.googleapis.com/models-hao/vgg16-ssd-mp-0_7726.pth |      |       |
+| MobileDet SSD        | https://www.aliyundrive.com/s/6CGF25n5iHP                    |      |       |
 
-```
-Average Precision Per-class:
-aeroplane: 0.6742489426027927
-bicycle: 0.7913672875238116
-bird: 0.612096015101108
-boat: 0.5616407126931772
-bottle: 0.3471259064860268
-bus: 0.7742298893362103
-car: 0.7284171192326804
-cat: 0.8360675520354323
-chair: 0.5142295855384792
-cow: 0.6244090341627014
-diningtable: 0.7060035669312754
-dog: 0.7849252606216821
-horse: 0.8202146617282785
-motorbike: 0.793578272243471
-person: 0.7042670984734087
-pottedplant: 0.40257147509774405
-sheep: 0.6071252282334352
-sofa: 0.7549120254763918
-train: 0.8270992920206008
-tvmonitor: 0.6459903029666852
 
-Average Precision Across All Classes:0.6755
-```
 
-### MobileNetV2 SSD-Lite
-
-URL: https://storage.googleapis.com/models-hao/mb2-ssd-lite-mp-0_686.pth
-
-```
-Average Precision Per-class:
-aeroplane: 0.6973327307871002
-bicycle: 0.7823755921687233
-bird: 0.6342429230125619
-boat: 0.5478160937380846
-bottle: 0.3564069147093762
-bus: 0.7882037885117419
-car: 0.7444122242934775
-cat: 0.8198865557991936
-chair: 0.5378973422880109
-cow: 0.6186076149254742
-diningtable: 0.7369559500950861
-dog: 0.7848265495754562
-horse: 0.8222948787839229
-motorbike: 0.8057808854619948
-person: 0.7176976451996411
-pottedplant: 0.42802932547480066
-sheep: 0.6259124005994047
-sofa: 0.7840368059271103
-train: 0.8331588002612781
-tvmonitor: 0.6555051795079904
-Average Precision Across All Classes:0.6860690100560214
-```
+### 
 
 The code to re-produce the model:
 
 ```bash
-wget -P models https://storage.googleapis.com/models-hao/mb2-imagenet-71_8.pth
 python train_ssd.py --dataset_type voc  --datasets ~/data/VOC0712/VOC2007 ~/data/VOC0712/VOC2012 --validation_dataset ~/data/VOC0712/test/VOC2007/ --net mb2-ssd-lite --base_net models/mb2-imagenet-71_8.pth  --scheduler cosine --lr 0.01 --t_max 200 --validation_epochs 5 --num_epochs 200
 ```
 
-### VGG SSD
 
-URL: https://storage.googleapis.com/models-hao/vgg16-ssd-mp-0_7726.pth
-
-
-```
-Average Precision Per-class:
-aeroplane: 0.7957406334737802
-bicycle: 0.8305351156180996
-bird: 0.7570969203281721
-boat: 0.7043869846367731
-bottle: 0.5151666571756393
-bus: 0.8375121237865507
-car: 0.8581508869699901
-cat: 0.8696185705648963
-chair: 0.6165431194526735
-cow: 0.8066422244852381
-diningtable: 0.7629391213959706
-dog: 0.8444541531856452
-horse: 0.8691922094815812
-motorbike: 0.8496564646906418
-person: 0.793785185549561
-pottedplant: 0.5233462463152305
-sheep: 0.7786762429478917
-sofa: 0.8024887701948746
-train: 0.8713861172265407
-tvmonitor: 0.7650514925384194
-Average Precision Across All Classes:0.7726184620009084
-```
-
-The code to re-produce the model:
 
 ```bash
-wget -P models https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth
 python train_ssd.py --datasets ~/data/VOC0712/VOC2007/ ~/data/VOC0712/VOC2012/ --validation_dataset ~/data/VOC0712/test/VOC2007/ --net vgg16-ssd --base_net models/vgg16_reducedfc.pth  --batch_size 24 --num_epochs 200 --scheduler "multi-step” —-milestones “120,160”
 ```
 
-### MobileDet SSD
-
-URL: https://www.aliyundrive.com/s/6CGF25n5iHP
-
-```
-Average Precision Per-class:
-aeroplane: 0.6973327307871002
-bicycle: 0.7823755921687233
-bird: 0.6342429230125619
-boat: 0.5478160937380846
-bottle: 0.3564069147093762
-bus: 0.7882037885117419
-car: 0.7444122242934775
-cat: 0.8198865557991936
-chair: 0.5378973422880109
-cow: 0.6186076149254742
-diningtable: 0.7369559500950861
-dog: 0.7848265495754562
-horse: 0.8222948787839229
-motorbike: 0.8057808854619948
-person: 0.7176976451996411
-pottedplant: 0.42802932547480066
-sheep: 0.6259124005994047
-sofa: 0.7840368059271103
-train: 0.8331588002612781
-tvmonitor: 0.6555051795079904
-Average Precision Across All Classes:0.6860690100560214
-```
+### 
 
 
 ## Training
 
 ```bash
-wget -P models https://storage.googleapis.com/models-hao/mobilenet_v1_with_relu_69_5.pth
 python train_ssd.py --datasets ~/data/VOC0712/VOC2007/ ~/data/VOC0712/VOC2012/ --validation_dataset ~/data/VOC0712/test/VOC2007/ --net mb1-ssd --base_net models/mobilenet_v1_with_relu_69_5.pth  --batch_size 24 --num_epochs 200 --scheduler cosine --lr 0.01 --t_max 200
 ```
 ```bash
-wget -P models https://storage.googleapis.com/models-hao/mobilenet_v1_with_relu_69_5.pth
 python train_ssd.py --datasets /home/mnt/CenterNet/data/kitti/training/ --validation_dataset /home/mnt/CenterNet/data/kitti/training/ --net mb1-ssd --base_net models/mobilenet_v1_with_relu_69_5.pth  --batch_size 24 --num_epochs 200 --scheduler cosine --lr 0.01 --t_max 200
 ```
 
@@ -236,24 +140,24 @@ If you manage to get more annotated data, the accuracy could become much higher.
 python open_images_downloader.py --root ~/data/open_images --class_names "Handgun,Shotgun" --num_workers 20
 ```
 
-It will download data into the folder ~/data/open_images.
 
-The content of the data directory looks as follows.
 
-```
-class-descriptions-boxable.csv       test                        validation
-sub-test-annotations-bbox.csv        test-annotations-bbox.csv   validation-annotations-bbox.csv
-sub-train-annotations-bbox.csv       train
-sub-validation-annotations-bbox.csv  train-annotations-bbox.csv
-```
+| Dataset  | Train/Val                                                    | Test                                                         | Annotations                                                  |
+| -------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| VOC2007  | [Train/Validation Data (439 MB)](http://pjreddie.com/media/files/VOCtrainval_06-Nov-2007.tar) | [Test Data With Annotations (431 MB)](http://pjreddie.com/media/files/VOCtest_06-Nov-2007.tar) | [Development Kit](http://pjreddie.com/media/files/VOCdevkit_08-Jun-2007.tar) |
+| VOC2012  | [Train/Validation Data (1.9 GB)](http://pjreddie.com/media/files/VOCtrainval_11-May-2012.tar) | [Test Data (1.8 GB)](http://pjreddie.com/media/files/VOC2012test.tar) | [Development Kit](http://pjreddie.com/media/files/VOCdevkit_18-May-2011.tar) |
+| KITTI    |                                                              |                                                              |                                                              |
+| COCO2014 | [2014 Train images [83K/13GB\]](http://images.cocodataset.org/zips/train2014.zip) <br/> [2014 Val images [41K/6GB\]](http://images.cocodataset.org/zips/val2014.zip) | [2014 Test images [41K/6GB\]](http://images.cocodataset.org/zips/test2014.zip) | [2014 Train/Val annotations [241MB\]](http://images.cocodataset.org/annotations/annotations_trainval2014.zip) |
+| COCO2017 | [2017 Train images [118K/18GB\]](http://images.cocodataset.org/zips/train2017.zip)<br/>[2017 Val images [5K/1GB\]](http://images.cocodataset.org/zips/val2017.zip) | [2017 Test images [41K/6GB\]](http://images.cocodataset.org/zips/test2017.zip) | [2017 Train/Val annotations [241MB\]](http://images.cocodataset.org/annotations/annotations_trainval2017.zip) |
 
-The folders train, test, validation contain the images. The files like sub-train-annotations-bbox.csv 
-is the annotation file.
 
-### Retrain
+
+## Retrain on VOC2007
 
 ```bash
-python train_ssd.py --dataset_type open_images --datasets ~/data/open_images --net mb1-ssd --pretrained_ssd models/mobilenet-v1-ssd-mp-0_675.pth --scheduler cosine --lr 0.01 --t_max 100 --validation_epochs 5 --num_epochs 100 --base_net_lr 0.001  --batch_size 5
+python train_yolof.py --dataset_type voc --datasets /mnt/Datasets/voc/voc2007/VOCdevkit/VOC2007/ --net mb1-yolof --scheduler cosine --batch_size 24 --lr 0.01 --t_max 200 --num_epochs 200 --base_net_lr 0.001 --validation_epochs 5
+
+python train_ssd.py --datasets ~/data/VOC0712/VOC2007/ ~/data/VOC0712/VOC2012/ --validation_dataset ~/data/VOC0712/test/VOC2007/ --net "mb1-ssd" --base_net models/vgg16_reducedfc.pth  --batch_size 24 --num_epochs 150 --scheduler cosine --lr 0.0012 --t_max 150 --validation_epochs 5
 ```
 
 You can freeze the base net, or all the layers except the prediction heads. 
@@ -320,7 +224,7 @@ python eval_ssd.py --net vgg16-ssd  --dataset ~/data/VOC0712/test/VOC2007/ --tra
 A simple, fast, and efficient object detector **without** FPN.
 
 - The [`cvpods`](https://github.com/Megvii-BaseDetection/cvpods) version can be found in https://github.com/megvii-model/YOLOF.
-- The neat and re-organized Detectron2 version of YOLOF is available at [https://github. com/chensnathan/YOLOF](https://github.com/chensnathan/YOLOF).
+- The neat and re-organized [`Detectron2`](https://github.com/facebookresearch/Detectron) version of YOLOF is available at [https://github. com/chensnathan/YOLOF](https://github.com/chensnathan/YOLOF).
 
 ```tex
 @inproceedings{chen2021you,
