@@ -19,7 +19,8 @@ r['y2'] = r['y2'].astype(int)
 
 
 for image_id, g in r.groupby('ImageID'):
-    image = cv2.imread(os.path.join(image_dir, image_id + ".jpg"))
+    image_id = "%06d" % image_id
+    image = cv2.imread(os.path.join(image_dir, f"{image_id}.png"))
     for row in g.itertuples():
         if row.Prob < threshold:
             continue
@@ -31,5 +32,5 @@ for image_id, g in r.groupby('ImageID'):
                     1,  # font scale
                     (255, 0, 255),
                     2)  # line type
-    cv2.imwrite(os.path.join(output_dir, image_id + ".jpg"), image)
+    cv2.imwrite(os.path.join(output_dir, f"{image_id}.png"), image)
 print(f"Task Done. Processed {r.shape[0]} bounding boxes.")

@@ -46,12 +46,13 @@ class UniformLoss(nn.Module):
         pred_anchor_deltas = pred_anchor_deltas.view(-1, 4)
         
 
-        all_anchors = [self.anchors for _ in range(N)]
-        all_anchors = cat(all_anchors).to(self.device)  ## torch.Size([12800, 4])
+        # all_anchors = [self.anchors for _ in range(N)]
+        # all_anchors = cat(all_anchors).to(self.device)  ## torch.Size([12800, 4])
         
-        box2box_transform = YOLOFBox2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0))
-        pred_boxes = box2box_transform.apply_deltas(
-            pred_anchor_deltas, all_anchors)
+        # box2box_transform = YOLOFBox2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0))
+        # pred_boxes = box2box_transform.apply_deltas(
+            # pred_anchor_deltas, all_anchors)
+        pred_boxes = pred_anchor_deltas
         pred_boxes = pred_boxes.reshape(N, -1, 4)
 
         # pos_mask = labels > 0

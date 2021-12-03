@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 from torch.utils.data.dataset import ConcatDataset
 
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
-from vision.yolof.mobiledet_yolof import create_mobilenetv1_yolof, create_mobilenetv2_yolof_lite, create_mobilenetv3_large_yolof_lite, create_mobilenetv3_small_yolof_lite, create_mobiledet_yolof, create_efficient_yolof
+from vision.yolof.mobiledet_yolof import create_mobilenetv1_yolof, create_mobilenetv2_yolof_lite, create_mobilenetv3_large_yolof_lite, create_mobilenetv3_small_yolof_lite, create_mobiledet_yolof, create_efficientnet_yolof
 from vision.datasets.voc_dataset import VOCDataset
 from vision.yolof.config import yolof_config
 from vision.yolof.data_preprocessing import TrainAugmentation, TestTransform
@@ -21,7 +21,7 @@ from vision.yolof.uniform_loss import UniformLoss
 from vision.yolof.yolof import MatchAnchor
 
 parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Training With Pytorch')
+    description='YOLOF Detector Training With Pytorch')
 
 parser.add_argument("--dataset_type", default="voc", type=str,
                     help='Specify dataset type. Currently support voc and open_images.')
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         create_net = create_mobiledet_yolof
         config = yolof_config
     elif args.net == 'ef-yolof':
-        create_net = create_efficient_yolof
+        create_net = create_efficientnet_yolof
         config = yolof_config
     else:
         logging.fatal("The net type is wrong.")

@@ -40,25 +40,33 @@ class Predictor:
         scores = scores[0]
         if not prob_threshold:
             prob_threshold = self.filter_threshold
+        # box2box_transform = YOLOFBox2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0))
+        # pred_boxes = box2box_transform.apply_deltas(
+        #     pred_anchor_deltas, all_anchors)
         # this version of nms is slower on GPU, so we move data to CPU.
         boxes = boxes.to(cpu_device)
+        # print(boxes.shape)
         scores = scores.to(cpu_device)
         picked_box_probs = []
         picked_labels = []
         for class_index in range(1, scores.size(1)):
             probs = scores[:, class_index]
+            # print(f"before:{probs.shape}")
             mask = probs > prob_threshold
             probs = probs[mask]
+            # print(f"after:{probs.shape}")
             if probs.size(0) == 0:
                 continue
             subset_boxes = boxes[mask, :]
             box_probs = torch.cat([subset_boxes, probs.reshape(-1, 1)], dim=1)
+            # print(f"before:{box_probs.shape}")
             box_probs = box_utils.nms(box_probs, self.nms_method,
                                       score_threshold=prob_threshold,
                                       iou_threshold=self.iou_threshold,
                                       sigma=self.sigma,
                                       top_k=top_k,
                                       candidate_size=self.candidate_size)
+            # print(f"after:{box_probs.shape}")
             picked_box_probs.append(box_probs)
             picked_labels.extend([class_index] * box_probs.size(0))
         if not picked_box_probs:

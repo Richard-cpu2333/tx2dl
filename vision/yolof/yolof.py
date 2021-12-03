@@ -1,11 +1,14 @@
 import torch
 from torch import Tensor, nn
+import torch.nn.functional as F
 # import torch.distributed as dist
 import itertools
 import copy
 import logging
 import numpy as np
 from typing import Dict, List, Tuple
+
+from vision.nn.mobilenetv3 import test
 
 
 from .box_regression import YOLOFBox2BoxTransform
@@ -18,26 +21,29 @@ logger = logging.getLogger(__name__)
 
 
 class YOLOF(nn.Module):
-    def __init__(
-            self,
-            backbone,
-            encoder,
-            decoder,
-    ):
+    def __init__(self, backbone, encoder, decoder, is_test=False, config=None, device=None):
 
-        super().__init__()
+        super(YOLOF, self).__init__()
 
         self.backbone = backbone
         self.encoder = encoder
         self.decoder = decoder
+        self.is_test = is_test
+        self.device = device
 
+        if device:
+            self.device = device
+        else:
+            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        if is_test:
+            self.config = config
+            self.anchors = config.anchors.to(self.device)
         # Anchors
         # self.generate_anchor = generate_anchors
-        self.box2box_transform = YOLOFBox2BoxTransform(weights=(1_0, 1_0, 1_0, 1_0), add_ctr_clamp=True, ctr_clamp=32)
-        self.anchor_matcher = UniformMatcher(4)
+        # self.box2box_transform = YOLOFBox2BoxTransform(weights=(1_0, 1_0, 1_0, 1_0), add_ctr_clamp=True, ctr_clamp=32)
+        # self.anchor_matcher = UniformMatcher(4)
 
 
-    # def forward(self, batched_inputs: Tuple[Dict[str, Tensor]]):
     def forward(self, batched_inputs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         num_images = len(batched_inputs)
         # print(num_images)
@@ -47,6 +53,21 @@ class YOLOF(nn.Module):
         # anchors_image = self.generate_anchors(config)
         # anchors = [copy.deepcopy(anchors_image) for _ in range(num_images)]
         pred_logits, pred_anchor_deltas = self.decoder(self.encoder(features))
+        
+        if self.is_test:
+            pred_logits = pred_logits[0]
+            pred_anchor_deltas = pred_anchor_deltas[0]
+            N = pred_logits.shape[0]
+            NUM_CLASSES = pred_logits.shape[2]
+            pred_anchor_deltas =  pred_anchor_deltas.view(-1, 4)
+            pred_anchor_deltas = pred_anchor_deltas.reshape(N, -1, 4)
+
+            pred_logits = F.softmax(pred_logits, dim=2)
+            pred_anchors = box_utils.convert_locations_to_boxes(
+                pred_anchor_deltas, self.anchors, self.config.center_variance, self.config.size_variance
+            )
+            pred_anchors = box_utils.center_form_to_corner_form(pred_anchors)
+            return pred_logits, pred_anchors
 
         return pred_logits, pred_anchor_deltas
 
@@ -73,8 +94,6 @@ class YOLOF(nn.Module):
         self.backbone.apply(_xavier_init_)
         self.encoder.apply(_xavier_init_)
         self.decoder.apply(_xavier_init_)
-
-
 
 
 

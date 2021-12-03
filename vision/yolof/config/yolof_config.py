@@ -109,7 +109,7 @@ MODEL_YOLOF_DETECTIONS_PER_IMAGE = 100
 # # INPUT:
 #   MIN_SIZE_TRAIN: (800,)
 
-image_size = 300
+image_size = 300 # [1242, 375]
 image_mean = np.array([127, 127, 127])  # RGB layout
 image_std = 128.0
 iou_threshold = 0.45

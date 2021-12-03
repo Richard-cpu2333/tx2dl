@@ -17,7 +17,7 @@ class Decoder(nn.Module):
           convolution, and one implicit objectness 3x3 convolution
     """
 
-    def __init__(self, num_classes=20):
+    def __init__(self, num_classes=21):
         super(Decoder, self).__init__()
         # fmt: off
         self.in_channels = 512
@@ -57,7 +57,7 @@ class Decoder(nn.Module):
         self.cls_subnet = nn.Sequential(*cls_subnet)
         self.bbox_subnet = nn.Sequential(*bbox_subnet)
         self.cls_score = nn.Conv2d(self.in_channels,
-                                   self.num_anchors * self.num_classes,
+                                   self.num_anchors * self.num_classes, # 4 for 
                                    kernel_size=3,
                                    stride=1,
                                    padding=1)
