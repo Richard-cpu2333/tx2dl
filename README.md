@@ -54,7 +54,7 @@ You may notice MobileNetV2 SSD/SSD-Lite is slower than MobileNetV1 SSD/Lite on P
 ### Run the live MobileNetV2 YOLOF Lite demo
 
 ```
-
+python run_live_demo.py ef-yolof  path/to/your/model.pth  models/voc-model-labels.txt path/to/your/video.mp4
 ```
 
 

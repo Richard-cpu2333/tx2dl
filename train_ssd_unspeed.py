@@ -121,7 +121,7 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
 
         optimizer.zero_grad()
         confidence, locations = net(images)
-        print(f"confidence'shape:{confidence.shape} and locations' shape:{locations.shape}")
+        # print(f"confidence'shape:{confidence.shape} and locations' shape:{locations.shape}")
         regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
         loss = regression_loss + classification_loss
         loss.backward()

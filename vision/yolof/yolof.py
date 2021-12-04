@@ -111,7 +111,7 @@ class MatchAnchor(object):
             gt_boxes = box_utils.corner_form_to_center_form(gt_boxes)
         if type(gt_labels) is np.ndarray:
             gt_labels = torch.from_numpy(gt_labels)
-
+        
         boxes, labels = box_utils.assign_anchors(gt_boxes, gt_labels, self.center_form_anchors)
         locations = box_utils.convert_boxes_to_locations(boxes, self.center_form_anchors, self.center_variance, self.size_variance)
         return locations, labels

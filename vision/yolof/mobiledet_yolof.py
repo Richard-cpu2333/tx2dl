@@ -1,10 +1,11 @@
 import torch
 # from torch.nn import Conv2d, Sequential, ModuleList, ReLU
 from vision.nn.mobiledet_gpu import MobileDetGPU
+from vision.nn.mobiledet_cpu import MobileDetCPU
 from vision.nn.mobilenet import MobileNetV1
 from vision.nn.mobilenet_v2 import MobileNetV2
 from vision.nn.mobilenetv3 import MobileNetV3_Large, MobileNetV3_Small
-from torchvision.models import efficientnet_b0, efficientnet_b1, efficientnet_b2, efficientnet_b3, efficientnet_b4, efficientnet_b5, efficientnet_b6, efficientnet_b7
+from torchvision.models import efficientnet_b0, efficientnet_b1, efficientnet_b2, efficientnet_b3
 
 from .encoder import DilatedEncoder
 from .decoder import Decoder
@@ -14,7 +15,7 @@ from .config import yolof_config as config
 
 
 def create_mobiledet_yolof(num_classes, is_test=False):
-    backbone = MobileDetGPU().model
+    backbone = MobileDetCPU().model
     encoder = DilatedEncoder(384)
     decoder = Decoder(num_classes)
 
@@ -23,13 +24,6 @@ def create_mobiledet_yolof(num_classes, is_test=False):
 
 
 def create_mobilenetv1_yolof(num_classes, is_test=False):
-    backbone = MobileNetV1().model
-    encoder = DilatedEncoder(1024)
-    decoder = Decoder(num_classes)
-
-    return YOLOF(backbone, encoder, decoder, is_test=is_test, config=config)
-
-def create_mobilenetv1_yolof_lite(num_classes, is_test=False):
     backbone = MobileNetV1().model
     encoder = DilatedEncoder(1024)
     decoder = Decoder(num_classes)

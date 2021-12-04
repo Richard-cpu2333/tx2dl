@@ -26,8 +26,8 @@ class UniformLoss(nn.Module):
     def __init__(self, batch_anchors, device):
         super(UniformLoss, self).__init__()
         '''
-        ## pred_class_logits.shape: [32, 400, 21] 
-        ## pred_anchor_deltas.shape: [32, 400, 4] 
+        ## pred_class_logits.shape: [32, 600, 21] 
+        ## pred_anchor_deltas.shape: [32, 600, 4] 
         ## labels.shape: []
 
         '''
@@ -40,8 +40,8 @@ class UniformLoss(nn.Module):
         N = confidence.shape[0]
         NUM_CLASSES = confidence.shape[2]
 
-        # print(f"labels.shape:{labels.shape}")  ## torch.Size([32, 400])
-        # print(f"boxes.shape:{gt_boxes.shape}")  ## torch.Size([32, 400, 4])
+        # print(f"labels.shape:{labels.shape}")  ## torch.Size([32, 600])
+        # print(f"boxes.shape:{gt_boxes.shape}")  ## torch.Size([32, 600, 4])
         # pred_class_logits = pred_class_logits.view(-1, NUM_CLASSES)
         pred_anchor_deltas = pred_anchor_deltas.view(-1, 4)
         

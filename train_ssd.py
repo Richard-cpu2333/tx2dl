@@ -3,7 +3,6 @@ import os
 import logging
 import sys
 import itertools
-from apex import amp
 import torch
 from torch.utils import data
 from torch.utils.data import DataLoader, ConcatDataset
@@ -35,6 +34,8 @@ parser.add_argument('--datasets', nargs='+', help='Dataset directory path')
 parser.add_argument('--validation_dataset', help='Dataset directory path')
 parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
+
+
 parser.add_argument('--net', default="mb2-ssd-lite",
                     help="The network architecture, it can be mb1-ssd, mb1-lite-ssd, mb2-ssd-lite, mb3-large-ssd-lite, mb3-small-ssd-lite.")
 parser.add_argument('--freeze_base_net', action='store_true',
@@ -127,9 +128,8 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         loss = regression_loss + classification_loss
         if not torch.isnan(loss):
             optimizer.zero_grad()
-            with amp.scale_loss(loss, opt) as scaled_loss:
-                scaled_loss.backward()
-                optimizer.step()
+            loss.backward()
+            optimizer.step()
 
         running_loss += loss.item()
         running_regression_loss += regression_loss.item()
@@ -197,6 +197,9 @@ if __name__ == '__main__':
         config = mobilenetv1_ssd_config
     elif args.net == 'ef-ssd-b0':
         create_net = lambda num: create_efficientnet_ssd_lite(num)
+        config = mobilenetv1_ssd_config
+    elif args.net == 'mbd-ssd-lite':
+        create_net = lambda num: create_mobiledet_ssd_lite(num)
         config = mobilenetv1_ssd_config
     else:
         logging.fatal("The net type is wrong.")
@@ -308,7 +311,6 @@ if __name__ == '__main__':
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
     
-    net, opt = amp.initialize(net, optimizer, opt_level='O1') 
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
 

@@ -1,5 +1,6 @@
 import torch
-from vision.yolof.mobiledet_yolof import create_efficientnet_yolof, create_mobiledet_yolof_predictor
+from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite_predictor
+from vision.yolof.mobiledet_yolof import create_efficientnet_yolof, create_mobilenetv2_yolof_lite,create_mobilenetv3_small_yolof_lite, create_mobiledet_yolof, create_mobiledet_yolof_predictor
 from vision.datasets.voc_dataset import VOCDataset
 from vision.utils import box_utils, measurements
 from vision.utils.misc import str2bool, Timer
@@ -126,8 +127,14 @@ if __name__ == '__main__':
     true_case_stat, all_gb_boxes, all_difficult_cases = group_annotation_by_class(dataset)
     if args.net == 'ef-yolof':
         net = create_efficientnet_yolof(len(class_names), is_test=True)
+    elif args.net == 'mb2-yolof':
+        net = create_mobilenetv2_yolof_lite(len(class_names, is_test=True))
+    elif args.net == 'mb3-yolof':
+        net = create_mobilenetv3_small_yolof_lite(len(class_names), is_test=True)
+    elif args.net == 'mbd-yolof':
+        net = create_mobiledet_yolof(len(class_names), is_test=True)
     else:
-        logging.fatal("The net type is wrong. It should be one of ef-yolof, mb1-ssd and mb1-ssd-lite.")
+        logging.fatal("The net type is wrong. It should be one of ef-yolof, mb2-yolof, mb3-yolof and mbd-yolof.")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -137,8 +144,14 @@ if __name__ == '__main__':
     print(f'It took {timer.end("Load Model")} seconds to load the model.')
     if args.net == 'ef-yolof':
         predictor = create_mobiledet_yolof_predictor(net, nms_method=args.nms_method, device=DEVICE)
+    elif args.net == 'mb2-yolof':
+        predictor = create_mobiledet_yolof_predictor(net, nms_method=args.nms_method, device=DEVICE)
+    elif args.net == 'mb3-yolof':
+        predictor = create_mobiledet_yolof_predictor(net, nms_method=args.nms_method, device=DEVICE)
+    elif args.net == 'mbd-yolof':
+        predictor = create_mobiledet_yolof_predictor(net, nms_method=args.nms_method, device=DEVICE)
     else:
-        logging.fatal("The net type is wrong. It should be one of vgg16-ssd, mb1-ssd and mb1-ssd-lite.")
+        logging.fatal("The net type is wrong. It should be one of ef-yolof, mb2-yolof, mb3-yolof and mbd-yolof.")
         parser.print_help(sys.stderr)
         sys.exit(1)
 

@@ -1,7 +1,7 @@
 import torch
 from torch.nn import Conv2d, Sequential, ModuleList, BatchNorm2d
 from torch import nn
-from ..nn.mobiledet_gpu import MobileDetGPU
+from ..nn.mobiledet_cpu import MobileDetCPU
 from ..nn.mobilenet_v2 import InvertedResidual
 
 from .ssd import SSD, GraphPath
@@ -23,10 +23,10 @@ def SeperableConv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=
 
 
 def create_mobiledet_ssd_lite(num_classes, width_mult=1.0, use_batch_norm=True, onnx_compatible=False, is_test=False):
-    base_net = MobileDetGPU().model
+    base_net = MobileDetCPU().model
 
     source_layer_indexes = [
-        19,
+        13,
         len(base_net)
     ]
     extras = ModuleList([
@@ -37,7 +37,7 @@ def create_mobiledet_ssd_lite(num_classes, width_mult=1.0, use_batch_norm=True, 
     ])
 
     regression_headers = ModuleList([
-        SeperableConv2d(in_channels=128, out_channels=6 * 4,
+        SeperableConv2d(in_channels=72, out_channels=6 * 4,
                         kernel_size=3, padding=1, onnx_compatible=False),
         SeperableConv2d(in_channels=384, out_channels=6 * 4, kernel_size=3, padding=1, onnx_compatible=False),
         SeperableConv2d(in_channels=512, out_channels=6 * 4, kernel_size=3, padding=1, onnx_compatible=False),
@@ -47,7 +47,7 @@ def create_mobiledet_ssd_lite(num_classes, width_mult=1.0, use_batch_norm=True, 
     ])
 
     classification_headers = ModuleList([
-        SeperableConv2d(in_channels=128, out_channels=6 * num_classes, kernel_size=3, padding=1),
+        SeperableConv2d(in_channels=72, out_channels=6 * num_classes, kernel_size=3, padding=1),
         SeperableConv2d(in_channels=384, out_channels=6 * num_classes, kernel_size=3, padding=1),
         SeperableConv2d(in_channels=512, out_channels=6 * num_classes, kernel_size=3, padding=1),
         SeperableConv2d(in_channels=256, out_channels=6 * num_classes, kernel_size=3, padding=1),
@@ -59,7 +59,7 @@ def create_mobiledet_ssd_lite(num_classes, width_mult=1.0, use_batch_norm=True, 
                extras, classification_headers, regression_headers, is_test=is_test, config=config)
 
 
-def create_mobilenetv2_ssd_lite_predictor(net, candidate_size=200, nms_method=None, sigma=0.5, device=torch.device('cpu')):
+def create_mobiledet_ssd_lite_predictor(net, candidate_size=200, nms_method=None, sigma=0.5, device=None):
     predictor = Predictor(net, config.image_size, config.image_mean,
                           config.image_std,
                           nms_method=nms_method,

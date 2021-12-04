@@ -95,6 +95,81 @@ class UniformMatcher(nn.Module):
             for i, j in all_indices
         ]
 
+'''
+############################################
+## To generate 6 anchors without params
+############################################
+
+def generate_anchors(clamp=True) -> torch.Tensor:
+    anchors = []
+    scale = 300 / 32 ## cfg.image_size / cfg.shrinkage
+    for j, i in itertools.product(range(10), repeat=2): ## cfg.feature_map_size = 10
+        x_center = (i + 0.5) / scale
+        y_center = (j + 0.5) / scale
+
+        size = 60 ## cfg.box_sizes[0]
+        h = w = size / 300 ## cfg.image_size
+        anchors.append([
+            x_center,
+            y_center,
+            w,
+            h
+        ])
+
+        size = 111 
+        h = w = size / 300 ## cfg.image_size
+        anchors.append([
+            x_center,
+            y_center,
+            w,
+            h
+        ])
+
+        size = 162 
+        h = w = size / 300 ## cfg.image_size
+        anchors.append([
+            x_center,
+            y_center,
+            w,
+            h
+        ])
+
+        size = 213
+        h = w = size / 300 ## cfg.image_size
+        anchors.append([
+            x_center,
+            y_center,
+            w,
+            h
+        ])
+
+        size = 264 
+        h = w = size / 300 ## cfg.image_size
+        anchors.append([
+            x_center,
+            y_center,
+            w,
+            h
+        ])
+
+        size = 315 ## math.sqrt(cfg.box_sizes[1] * cfg.box_sizes[0])
+        h = w = size / 300 ## cfg.image_size
+        anchors.append([
+            x_center,
+            y_center,
+            w,
+            h
+        ])
+
+    anchors = torch.tensor(anchors)
+    if clamp:
+        torch.clamp(anchors, 0.0, 1.0, out=anchors)
+    return anchors
+'''
+
+########################
+## To generate 4 anchors
+########################
 def generate_anchors(clamp=True) -> torch.Tensor:
     anchors = []
     scale = 300 / 32 ## cfg.image_size / cfg.shrinkage
@@ -146,3 +221,4 @@ def generate_anchors(clamp=True) -> torch.Tensor:
     if clamp:
         torch.clamp(anchors, 0.0, 1.0, out=anchors)
     return anchors
+    

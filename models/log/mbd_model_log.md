@@ -194,6 +194,12 @@ MobileDetGPU(
     (bn3): BatchNorm2d(384, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
     (act3): Mish()
   )
+
+
+
+
+
+  
   (model): Sequential(
     (0): Conv2d(3, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1))
     (1): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
