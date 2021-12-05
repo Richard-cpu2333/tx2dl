@@ -63,12 +63,18 @@ python run_live_demo.py ef-yolof  path/to/your/model.pth  models/voc-model-label
 
 ### 
 
-| Model                | URL                                                          | SSD  | YOLOF |
-| -------------------- | ------------------------------------------------------------ | ---- | ----- |
-| Mobilenet V1 SSD     | https://storage.googleapis.com/models-hao/mobilenet-v1-ssd-mp-0_675.pth |      |       |
-| MobileNetV2 SSD-Lite | https://storage.googleapis.com/models-hao/mb2-ssd-lite-mp-0_686.pth |      |       |
-| VGG SSD              | https://storage.googleapis.com/models-hao/vgg16-ssd-mp-0_7726.pth |      |       |
-| MobileDet SSD        | https://www.aliyundrive.com/s/6CGF25n5iHP                    |      |       |
+| backbone                 | mAP(%) | Param(M) | MAdds(G) |  FLOPS  | Size(MB) |
+| ------------------------ | :----: | :------: | :------: | :-----: | :------: |
+| mobilenet2-SSDlite       |  55.8  |   3.09   |   1.3    | 663.42M |  144.21  |
+| mobilenet2-YOLOF         |        |   8.07   |   2.34   |  1.19G  |  150.38  |
+| mobilenet3-small-SSDlite |        |          |          |         |          |
+| mobilenet3-small-YOLOF   |        |          |          |         |          |
+| mobilenet3-large-SSDlite |  54.3  |   2.16   |   1.04   | 525.5M  |  86.34   |
+| mobilenet3-large-YOLOF   |        |   5.98   |   1.33   | 666.67M |  42.58   |
+| efficientnet-SSDlite-B0  |  51.7  |   4.84   |   1.6    | 804.8M  |  143.32  |
+| efficientnet-YOLOF-B0    |        |   9.86   |   2.66   |  1.34G  |  153.58  |
+| mobiledet-SSDlite        |        |   3.07   |   2.22   |  1,12G  |  89.72   |
+| mobiledet-YOLOF          |        |   8.1    |   3.28   |  1.65G  |  102.35  |
 
 
 
@@ -77,13 +83,13 @@ python run_live_demo.py ef-yolof  path/to/your/model.pth  models/voc-model-label
 The code to re-produce the model:
 
 ```bash
-python train_ssd.py --dataset_type voc  --datasets ~/data/VOC0712/VOC2007 ~/data/VOC0712/VOC2012 --validation_dataset ~/data/VOC0712/test/VOC2007/ --net mb2-ssd-lite --base_net models/mb2-imagenet-71_8.pth  --scheduler cosine --lr 0.01 --t_max 200 --validation_epochs 5 --num_epochs 200
+python train_ssd.py --dataset_type voc  --datasets ~/data/VOC0712/VOC2007 ~/data/VOC0712/VOC2012 --validation_dataset ~/data/VOC0712/test/VOC2007/ --net mb2-ssd-lite --base_net models/mb2-imagenet-71_8.pth  --scheduler cosine --lr 0.01 --t_max 200 --validation_epochs 5 --num_epochs 300
 ```
 
 
 
 ```bash
-python train_ssd.py --datasets ~/data/VOC0712/VOC2007/ ~/data/VOC0712/VOC2012/ --validation_dataset ~/data/VOC0712/test/VOC2007/ --net vgg16-ssd --base_net models/vgg16_reducedfc.pth  --batch_size 24 --num_epochs 200 --scheduler "multi-step” —-milestones “120,160”
+python train_ssd.py --datasets ~/data/VOCkitti/ --validation_dataset ~/data/VOCkitti/ --net mbd-ssd-lite --base_net /model/to/your/model.pth  --batch_size 32 --num_epochs 300 --scheduler "multi-step” —-milestones “120,160”
 ```
 
 ### 
@@ -215,7 +221,7 @@ python eval_ssd.py --net vgg16-ssd  --dataset ~/data/VOC0712/test/VOC2007/ --tra
 ## TOO
 
 1. NAS
-2. Backbone.
+2. AnchorFree.
 
 
 

@@ -4,6 +4,7 @@ from vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite, create_
 from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
 from vision.ssd.mobilenetv3_ssd_lite import create_mobilenetv3_large_ssd_lite, create_mobilenetv3_small_ssd_lite
 from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite, create_squeezenet_ssd_lite_predictor
+from vision.ssd.mobiledet_ssd_lite import create_mobiledet_ssd_lite, create_mobiledet_ssd_lite_predictor
 from vision.yolof.mobiledet_yolof import create_efficientnet_yolof, create_mobiledet_yolof, create_mobilenetv2_yolof_lite, create_mobilenetv3_small_yolof_lite, create_mobiledet_yolof_predictor
 from vision.utils.misc import Timer
 import cv2
@@ -50,6 +51,8 @@ elif net_type == 'ef-ssd-b0':
     net = create_efficientnet_ssd_lite(len(class_names), is_test=True)
 elif net_type == 'sq-ssd':
     net = create_squeezenet_ssd_lite(len(class_names), is_test=True)
+elif net_type == 'mbd-ssd-lite':
+    net = create_mobiledet_ssd_lite(len(class_names), is_test=True)
 else:
     print("The net type is wrong. It should be one of vgg16-ssd, mb1-ssd and mb1-ssd-lite.")
     sys.exit(1)
@@ -67,8 +70,10 @@ elif net_type == 'ef-ssd-b0' or net_type == 'ef-ssd-b1' or net_type == 'ef-ssd-b
     predictor = create_efficientnet_ssd_lite_predictor(net, candidate_size=200)
 elif net_type == 'sq-ssd-lite':
     predictor = create_squeezenet_ssd_lite_predictor(net, candidate_size=200)
+elif net_type == 'mbd-ssd-lite':
+    predictor = create_mobiledet_ssd_lite_predictor(net, candidate_size=200)
 else:
-    print("The net type is wrong. It should be one of vgg16-ssd, mb1-ssd and mb1-ssd-lite.")
+    print("The net type is wrong. It should be one of mbd-ssd, mb1-ssd and mb1-ssd-lite.")
     sys.exit(1)
 
 

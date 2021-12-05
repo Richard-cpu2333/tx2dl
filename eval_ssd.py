@@ -1,3 +1,4 @@
+from time import time
 import torch
 from vision.ssd.vgg_ssd import create_vgg_ssd, create_vgg_ssd_predictor
 from vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd, create_mobilenetv1_ssd_predictor
@@ -16,7 +17,6 @@ from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create
 from vision.ssd.mobilenetv3_ssd_lite import create_mobilenetv3_large_ssd_lite, create_mobilenetv3_small_ssd_lite
 from vision.ssd.efficientnet_ssd_lite import create_efficientnet_ssd_lite, create_efficientnet_ssd_lite_predictor
 from vision.ssd.mobiledet_ssd_lite import create_mobiledet_ssd_lite, create_mobiledet_ssd_lite_predictor
-
 
 parser = argparse.ArgumentParser(description="SSD Evaluation on VOC Dataset.")
 parser.add_argument('--net', default="vgg16-ssd",
@@ -181,6 +181,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     results = []
+    times = []
     # print(len(dataset)) ## num_test: 733 images
     for i in range(len(dataset)):
         print("process image", i)
@@ -189,7 +190,9 @@ if __name__ == '__main__':
         print("Load Image: {:4f} seconds.".format(timer.end("Load Image")))
         timer.start("Predict")
         boxes, labels, probs = predictor.predict(image)
-        print("Prediction: {:4f} seconds.".format(timer.end("Predict")))
+        la = timer.end("Predict")
+        print("Prediction: {:4f} seconds.".format(la))
+        times.append(la)
         indexes = torch.ones(labels.size(0), 1, dtype=torch.float32) * i
         results.append(torch.cat([
             indexes.reshape(-1, 1),
@@ -228,3 +231,5 @@ if __name__ == '__main__':
         print(f"{class_name}: {ap}")
 
     print(f"\nAverage Precision Across All Classes:{sum(aps)/len(aps)}")
+    times.sort()
+    print(times[0])
