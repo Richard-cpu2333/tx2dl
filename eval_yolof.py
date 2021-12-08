@@ -156,6 +156,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     results = []
+    times = []
     for i in range(len(dataset)):
         print("process image", i)
         timer.start("Load Image")
@@ -163,7 +164,9 @@ if __name__ == '__main__':
         print("Load Image: {:4f} seconds.".format(timer.end("Load Image")))
         timer.start("Predict")
         boxes, labels, probs = predictor.predict(image)
-        print("Prediction: {:4f} seconds.".format(timer.end("Predict")))
+        la = timer.end("Predict")
+        print("Prediction: {:4f} seconds.".format(la))
+        times.append(la)
         indexes = torch.ones(labels.size(0), 1, dtype=torch.float32) * i
         results.append(torch.cat([
             indexes.reshape(-1, 1),
@@ -202,3 +205,5 @@ if __name__ == '__main__':
         print(f"{class_name}: {ap}")
 
     print(f"\nAverage Precision Across All Classes:{sum(aps)/len(aps)}")
+    times.sort()
+    print(times[0])

@@ -15,7 +15,7 @@ import logging
 import sys
 from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite, create_mobilenetv2_ssd_lite_predictor
 from vision.ssd.mobilenetv3_ssd_lite import create_mobilenetv3_large_ssd_lite, create_mobilenetv3_small_ssd_lite
-from vision.ssd.efficientnet_ssd_lite import create_efficientnet_ssd_lite, create_efficientnet_ssd_lite_predictor
+from vision.ssd.efficientnet_ssd_lite import create_efficientnet_ssd_lite_b0, create_efficientnet_ssd_lite_b1, create_efficientnet_ssd_lite_b2, create_efficientnet_ssd_lite_b3, create_efficientnet_ssd_lite_predictor
 from vision.ssd.mobiledet_ssd_lite import create_mobiledet_ssd_lite, create_mobiledet_ssd_lite_predictor
 
 parser = argparse.ArgumentParser(description="SSD Evaluation on VOC Dataset.")
@@ -148,12 +148,18 @@ if __name__ == '__main__':
         net = create_mobilenetv3_large_ssd_lite(len(class_names), is_test=True)
     elif args.net == 'mb3-small-ssd-lite':
         net = create_mobilenetv3_small_ssd_lite(len(class_names), is_test=True)
-    elif args.net == "ef-ssd-lite":
-        net = create_efficientnet_ssd_lite(len(class_names), is_test=True)
+    elif args.net == "ef0-ssd-lite":
+        net = create_efficientnet_ssd_lite_b0(len(class_names), is_test=True)
+    elif args.net == "ef1-ssd-lite":
+        net = create_efficientnet_ssd_lite_b1(len(class_names), is_test=True)
+    elif args.net == "ef2-ssd-lite":
+        net = create_efficientnet_ssd_lite_b2(len(class_names), is_test=True)
+    elif args.net == "ef3-ssd-lite":
+        net = create_efficientnet_ssd_lite_b3(len(class_names), is_test=True)
     elif args.net == "mbd-ssd-lite":
         net = create_mobiledet_ssd_lite(len(class_names), is_test=True)
     else:
-        logging.fatal("The net type is wrong. It should be one of vgg16-ssd, mb1-ssd and mb1-ssd-lite.")
+        logging.fatal("The net type is wrong. It should be one of ef1-ssd-lite, mbd-ssd-lite.")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
@@ -171,7 +177,7 @@ if __name__ == '__main__':
         predictor = create_squeezenet_ssd_lite_predictor(net,nms_method=args.nms_method, device=DEVICE)
     elif args.net == 'mb2-ssd-lite' or args.net == "mb3-large-ssd-lite" or args.net == "mb3-small-ssd-lite":
         predictor = create_mobilenetv2_ssd_lite_predictor(net, nms_method=args.nms_method, device=DEVICE)
-    elif args.net == "ef-ssd-lite":
+    elif args.net == "ef0-ssd-lite" or args.net == "ef1-ssd-lite" or args.net == "ef2-ssd-lite" or args.net == "ef3-ssd-lite":
         predictor = create_efficientnet_ssd_lite_predictor(net, nms_method=args.nms_method, device=DEVICE)
     elif args.net == "mbd-ssd-lite":
         predictor = create_mobiledet_ssd_lite_predictor(net, nms_method=args.nms_method, device=DEVICE)

@@ -7,7 +7,7 @@ import torch
 from torch.utils import data
 from torch.utils.data import DataLoader, ConcatDataset
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
-from vision.ssd.efficientnet_ssd_lite import create_efficientnet_ssd_lite
+from vision.ssd.efficientnet_ssd_lite import create_efficientnet_ssd_lite_b0, create_efficientnet_ssd_lite_b1, create_efficientnet_ssd_lite_b2, create_efficientnet_ssd_lite_b3
 
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
 from vision.ssd.ssd import MatchPrior
@@ -196,7 +196,15 @@ if __name__ == '__main__':
         create_net = lambda num: create_mobilenetv3_small_ssd_lite(num)
         config = mobilenetv1_ssd_config
     elif args.net == 'ef-ssd-b0':
-        create_net = lambda num: create_efficientnet_ssd_lite(num)
+        create_net = lambda num: create_efficientnet_ssd_lite_b0(num)
+        config = mobilenetv1_ssd_config
+    elif args.net == 'ef-ssd-b1':
+        create_net = lambda num: create_efficientnet_ssd_lite_b1(num)
+    elif args.net == 'ef-ssd-b2':
+        create_net = lambda num: create_efficientnet_ssd_lite_b2(num)
+        config = mobilenetv1_ssd_config
+    elif args.net == 'ef-ssd-b3':
+        create_net = lambda num: create_efficientnet_ssd_lite_b3(num)
         config = mobilenetv1_ssd_config
     elif args.net == 'mbd-ssd-lite':
         create_net = lambda num: create_mobiledet_ssd_lite(num)
