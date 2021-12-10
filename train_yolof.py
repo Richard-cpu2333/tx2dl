@@ -3,29 +3,29 @@ import os
 import logging
 import sys
 import itertools
+# from apex.amp.scaler import axpby_check_overflow_python
+import numpy as np
+from numpy import dtype
+from numpy.core.fromnumeric import shape
+from numpy.lib.type_check import imag
+# from apex import amp
+
 import torch
-from torch.utils import data
-from torch.utils.data import DataLoader, ConcatDataset
+from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
-from vision.ssd.efficientnet_ssd_lite import create_efficientnet_ssd_lite_b0, create_efficientnet_ssd_lite_b1, create_efficientnet_ssd_lite_b2, create_efficientnet_ssd_lite_b3
+from torch.utils.data.dataset import ConcatDataset
 
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
-from vision.ssd.ssd import MatchPrior
-from vision.ssd.mobilenetv1_ssd import create_mobilenetv1_ssd
-from vision.ssd.mobilenetv1_ssd_lite import create_mobilenetv1_ssd_lite
-from vision.ssd.mobilenet_v2_ssd_lite import create_mobilenetv2_ssd_lite
-from vision.ssd.mobilenetv3_ssd_lite import create_mobilenetv3_large_ssd_lite, create_mobilenetv3_small_ssd_lite
-from vision.ssd.squeezenet_ssd_lite import create_squeezenet_ssd_lite
-from vision.ssd.mobiledet_ssd_lite import create_mobiledet_ssd_lite
+from vision.yolof.mobiledet_yolof import create_mobilenetv1_yolof, create_mobilenetv2_yolof_lite, create_mobilenetv3_large_yolof_lite, create_mobilenetv3_small_yolof_lite, create_mobiledet_yolof, create_efficientnet_yolof
 from vision.datasets.voc_dataset import VOCDataset
-from vision.datasets.open_images import OpenImagesDataset
-from vision.nn.multibox_loss import MultiboxLoss
-from vision.ssd.config import mobilenetv1_ssd_config
-from vision.ssd.config import squeezenet_ssd_config
-from vision.ssd.data_preprocessing import TrainAugmentation, TestTransform
+from vision.yolof.config import yolof_config
+from vision.yolof.data_preprocessing import PredictionTransform, TrainAugmentation, TestTransform
+
+from vision.yolof.uniform_loss import UniformLoss
+from vision.yolof.uniform_matcher import MatchAnchor
 
 parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Training With Pytorch')
+    description='YOLOF Detector Training With Pytorch')
 
 parser.add_argument("--dataset_type", default="voc", type=str,
                     help='Specify dataset type. Currently support voc and open_images.')
@@ -36,8 +36,8 @@ parser.add_argument('--balance_data', action='store_true',
                     help="Balance training data by down-sampling more frequent labels.")
 
 
-parser.add_argument('--net', default="mb2-ssd-lite",
-                    help="The network architecture, it can be mb1-ssd, mb1-lite-ssd, mb2-ssd-lite, mb3-large-ssd-lite, mb3-small-ssd-lite.")
+parser.add_argument('--net', default="mbd-yolof",
+                    help="The network architecture, it can be mb1-ssd, mb1-lite-ssd, mb2-ssd-lite, mb3-large-ssd-lite, mb3-small-ssd-lite or vgg16-ssd.")
 parser.add_argument('--freeze_base_net', action='store_true',
                     help="Freeze base net layers.")
 parser.add_argument('--freeze_net', action='store_true',
@@ -64,7 +64,7 @@ parser.add_argument('--extra_layers_lr', default=None, type=float,
 # Params for loading pretrained basenet or checkpoints.
 parser.add_argument('--base_net',
                     help='Pretrained base model')
-parser.add_argument('--pretrained_ssd', help='Pre-trained base model')
+parser.add_argument('--pretrained_yolof', help='Pre-trained base model')
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
 
@@ -83,9 +83,9 @@ parser.add_argument('--t_max', default=120, type=float,
 # Train params
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
-parser.add_argument('--num_epochs', default=120, type=int,
+parser.add_argument('--num_epochs', default=200, type=int,
                     help='the number epochs')
-parser.add_argument('--num_workers', default=4, type=int,
+parser.add_argument('--num_workers', default=6, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--validation_epochs', default=5, type=int,
                     help='the number epochs')
@@ -101,7 +101,9 @@ parser.add_argument('--checkpoint_folder', default='models/',
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 args = parser.parse_args()
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() and args.use_cuda else "cpu")
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available()
+                      and args.use_cuda else "cpu")
 
 if args.use_cuda and torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
@@ -109,31 +111,57 @@ if args.use_cuda and torch.cuda.is_available():
 
 
 def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
-    # print(len(loader))
     net.train(True)
     running_loss = 0.0
     running_regression_loss = 0.0
     running_classification_loss = 0.0
     for i, data in enumerate(loader):
         images, boxes, labels = data
-        print(images.shape)
-        images = images.to(device)
-        boxes = boxes.to(device)
-        labels = labels.to(device)
         
-        confidence, locations = net(images)
+        # print(type(boxes[0])) ## len=batch_size  <class 'numpy.ndarray'>
+        # print(labels[0]) ## <class 'numpy.ndarray'>
+        # images = torch.cat([torch.unsqueeze(images[i], dim=0) for i in range(len(images))]).to(device)
+        # images = torch.cat(torch.unsqueeze(images, dim=1).to(device) ## images.shape: torch.Size([2, 3, 300, 300]) if batch_size==2
+        images = images.to(device)
+        # images = images.half().to(device)
+        # print(f"Image's shape: {images.shape}")
+        # boxes = torch.from_numpy(np.concatenate(boxes, axis=0))
+        # print(f"boxes' shape is: {boxes.shape}")
 
-        # print(f"confidence'shape:{confidence.shape} and locations' shape:{locations.shape}")
-        regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)  # TODO CHANGE BOXES
-        loss = regression_loss + classification_loss
+        # labels = torch.from_numpy(np.concatenate(labels, axis=0))
+        # print(f"labels' shape is: {labels.shape}")
+        
+        pred_class_logits, pred_boxes = net(images)
+        pred_boxes = pred_boxes[0]               ## torch.Size([2, 400, 4]), if batch=2
+        pred_class_logits = pred_class_logits[0] ## torch.Size([2, 400, 21]), if batch=2
+        
+
+        from vision.utils import box_utils
+        
+        tt1 = MatchAnchor(config.anchors)
+        pos_anchors, pos_labels = tt1(boxes, labels)
+
+        pred_boxes = box_utils.corner_form_to_center_form(pred_boxes).float()
+
+        tt2 = MatchAnchor(pred_boxes)
+        pred_anchor_deltas, picked_labels = tt2(boxes, labels)
+        
+        loss_cls, loss_box_reg = criterion(pos_labels, pos_anchors, picked_labels, pred_anchor_deltas, pred_class_logits)
+        loss = loss_box_reg + loss_cls
         if not torch.isnan(loss):
+            # optimizer.zero_grad()
+            # with amp.scale_loss(loss, opt) as scaled_loss:
+            #     scaled_loss.backward()
+            # # loss.backward()
+            # optimizer.step()
+        
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
         running_loss += loss.item()
-        running_regression_loss += regression_loss.item()
-        running_classification_loss += classification_loss.item()
+        running_regression_loss += loss_box_reg.item()
+        running_classification_loss += loss_cls.item()
         if i and i % debug_steps == 0:
             avg_loss = running_loss / debug_steps
             avg_reg_loss = running_regression_loss / debug_steps
@@ -163,140 +191,119 @@ def test(loader, net, criterion, device):
         num += 1
 
         with torch.no_grad():
-            confidence, locations = net(images)
-            regression_loss, classification_loss = criterion(confidence, locations, labels, boxes)
-            loss = regression_loss + classification_loss
-
+            pred_logits, pred_anchor_deltas = net(images)
+            loss_cls, loss_box_reg = criterion(
+                pred_logits[0], pred_anchor_deltas[0], labels, boxes)
+            loss = loss_cls + loss_box_reg
         running_loss += loss.item()
-        running_regression_loss += regression_loss.item()
-        running_classification_loss += classification_loss.item()
+        running_regression_loss += loss_box_reg.item()
+        running_classification_loss += loss_cls.item()
     return running_loss / num, running_regression_loss / num, running_classification_loss / num
 
+def my_collate(batch):
+    # images = [item[0] for item in batch]
+    images = torch.cat([torch.unsqueeze(item[0], dim=0) for item in batch])
+    # print(len(images))
+    target = [item[1] for item in batch]
+    # print(target[0].shape)
+    label = [item[2] for item in batch]
+    # print(label[0].shape)
+    return [images, target, label]
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     timer = Timer()
 
     logging.info(args)
-    if args.net == 'mb1-ssd':
-        create_net = create_mobilenetv1_ssd
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mb1-ssd-lite':
-        create_net = create_mobilenetv1_ssd_lite
-        config = mobilenetv1_ssd_config
-    elif args.net == 'sq-ssd-lite':
-        create_net = create_squeezenet_ssd_lite
-        config = squeezenet_ssd_config
-    elif args.net == 'mb2-ssd-lite':
-        create_net = lambda num: create_mobilenetv2_ssd_lite(num, width_mult=args.mb2_width_mult)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mb3-large-ssd-lite':
-        create_net = lambda num: create_mobilenetv3_large_ssd_lite(num)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mb3-small-ssd-lite':
-        create_net = lambda num: create_mobilenetv3_small_ssd_lite(num)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'ef-ssd-b0':
-        create_net = lambda num: create_efficientnet_ssd_lite_b0(num)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'ef-ssd-b1':
-        create_net = lambda num: create_efficientnet_ssd_lite_b1(num)
-    elif args.net == 'ef-ssd-b2':
-        create_net = lambda num: create_efficientnet_ssd_lite_b2(num)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'ef-ssd-b3':
-        create_net = lambda num: create_efficientnet_ssd_lite_b3(num)
-        config = mobilenetv1_ssd_config
-    elif args.net == 'mbd-ssd-lite':
-        create_net = lambda num: create_mobiledet_ssd_lite(num)
-        config = mobilenetv1_ssd_config
+    if args.net == 'mb1-yolof':
+        create_net = create_mobilenetv1_yolof
+        config = yolof_config
+    elif args.net == 'mb2-yolof-lite':
+        def create_net(num): return create_mobilenetv2_yolof_lite(
+            num, width_mult=args.mb2_width_mult)
+        config = yolof_config
+    elif args.net == 'mb3-large-yolof-lite':
+        def create_net(num): return create_mobilenetv3_large_yolof_lite(num)
+        config = yolof_config
+    elif args.net == 'mb3-small-yolof-lite':
+        def create_net(num): return create_mobilenetv3_small_yolof_lite(num)
+        config = yolof_config
+    elif args.net == 'mbd-yolof':
+        create_net = create_mobiledet_yolof
+        config = yolof_config
+    elif args.net == 'ef-yolof':
+        create_net = create_efficientnet_yolof
+        config = yolof_config
     else:
         logging.fatal("The net type is wrong.")
         parser.print_help(sys.stderr)
         sys.exit(1)
 
-    train_transform = TrainAugmentation(config.image_size, config.image_mean, config.image_std)
-    target_transform = MatchPrior(config.priors, config.center_variance,config.size_variance, 0.5)
-
-    test_transform = TestTransform(config.image_size, config.image_mean, config.image_std)
+    train_transform = TrainAugmentation(
+        config.image_size, config.image_mean, config.image_std)
+    # target_transform = MatchAnchor(
+    #     config.anchors, config.center_variance, config.size_variance)
+    test_transform = TestTransform(
+        config.image_size, config.image_mean, config.image_std)
 
     logging.info("Prepare training datasets.")
     datasets = []
     for dataset_path in args.datasets:
         if args.dataset_type == 'voc':
-            dataset = VOCDataset(dataset_path, transform=train_transform, target_transform=target_transform)
-            label_file = os.path.join(args.checkpoint_folder, "voc-model-labels.txt")
+            dataset = VOCDataset(
+                dataset_path, transform=train_transform, target_transform=None)
+            label_file = os.path.join(
+                args.checkpoint_folder, "voc-model-labels.txt")
             store_labels(label_file, dataset.class_names)
             num_classes = len(dataset.class_names)
-        elif args.dataset_type == 'open_images':
-            dataset = OpenImagesDataset(dataset_path,
-                 transform=train_transform, target_transform=target_transform,
-                 dataset_type="train", balance_data=args.balance_data)
-            label_file = os.path.join(args.checkpoint_folder, "open-images-model-labels.txt")
-            store_labels(label_file, dataset.class_names)
-            logging.info(dataset)
-            num_classes = len(dataset.class_names)
-
         else:
-            raise ValueError(f"Dataset type {args.dataset_type} is not supported.")
+            raise ValueError(
+                f"Dataset type {args.dataset_type} is not supported.")
         datasets.append(dataset)
     logging.info(f"Stored labels into file {label_file}.")
     train_dataset = ConcatDataset(datasets)
-    logging.info("Train dataset size: {}".format(len(train_dataset)))
-    train_loader = DataLoader(train_dataset, args.batch_size,
-                              num_workers=args.num_workers,
-                              shuffle=True)
+    logging.info("Train dataset size: {}".format(len(dataset)))
+    # train_loader = DataLoader(dataset, args.batch_size, num_workers=args.num_workers, shuffle=True)
+    train_loader = DataLoader(dataset, args.batch_size, collate_fn=my_collate, num_workers=args.num_workers, shuffle=True)
+
     logging.info("Prepare Validation datasets.")
-    if args.dataset_type == "voc":
+    if args.dataset_type == 'voc':
         val_dataset = VOCDataset(args.validation_dataset, transform=test_transform,
-                                 target_transform=target_transform, is_test=True)
-    elif args.dataset_type == 'open_images':
-        val_dataset = OpenImagesDataset(dataset_path,
-                                        transform=test_transform, target_transform=target_transform,
-                                        dataset_type="test")
+                                 target_transform=None, is_test=True)
         logging.info(val_dataset)
-    logging.info("validation dataset size: {}".format(len(val_dataset)))
+    elif args.dataset_type == 'coco':
+        pass
+    logging.info(f"validation dataset size: {len(val_dataset)}")
 
     val_loader = DataLoader(val_dataset, args.batch_size,
-                            num_workers=args.num_workers,
-                            shuffle=False)
+                            num_workers=args.num_workers, shuffle=False)
+
     logging.info("Build network.")
     net = create_net(num_classes)
     min_loss = -10000.0
     last_epoch = -1
-
     base_net_lr = args.base_net_lr if args.base_net_lr is not None else args.lr
     extra_layers_lr = args.extra_layers_lr if args.extra_layers_lr is not None else args.lr
+
     if args.freeze_base_net:
         logging.info("Freeze base net.")
-        freeze_net_layers(net.base_net)
-        params = itertools.chain(net.source_layer_add_ons.parameters(), net.extras.parameters(),
-                                 net.regression_headers.parameters(), net.classification_headers.parameters())
+        freeze_net_layers(net.backbone)
+
+        params = itertools.chain(net.encoder.parameters(),
+                                 net.decoder.parameters())
         params = [
             {'params': itertools.chain(
-                net.source_layer_add_ons.parameters(),
-                net.extras.parameters()
+                net.encoder.parameters(),
+                net.decoder.parameters()
             ), 'lr': extra_layers_lr},
-            {'params': itertools.chain(
-                net.regression_headers.parameters(),
-                net.classification_headers.parameters()
-            )}
         ]
-    elif args.freeze_net:
-        freeze_net_layers(net.base_net)
-        freeze_net_layers(net.source_layer_add_ons)
-        freeze_net_layers(net.extras)
-        params = itertools.chain(net.regression_headers.parameters(), net.classification_headers.parameters())
-        logging.info("Freeze all the layers except prediction heads.")
     else:
         params = [
-            {'params': net.base_net.parameters(), 'lr': base_net_lr},
+            {'params': net.backbone.parameters(), 'lr': base_net_lr},
             {'params': itertools.chain(
-                net.source_layer_add_ons.parameters(),
-                net.extras.parameters()
+                net.encoder.parameters(),
             ), 'lr': extra_layers_lr},
             {'params': itertools.chain(
-                net.regression_headers.parameters(),
-                net.classification_headers.parameters()
+                net.decoder.parameters()
             )}
         ]
 
@@ -307,18 +314,20 @@ if __name__ == '__main__':
     elif args.base_net:
         logging.info(f"Init from base net {args.base_net}")
         net.init_from_base_net(args.base_net)
-    elif args.pretrained_ssd:
-        logging.info(f"Init from pretrained ssd {args.pretrained_ssd}")
-        net.init_from_pretrained_ssd(args.pretrained_ssd)
-    logging.info(f'Took {timer.end("Load Model"):.2f} seconds to load the model.')
+    elif args.pretrained_yolof:
+        logging.info(f"Init from pretrained yolof {args.pretrained_yolof}")
+        net.init_from_pretrained_yolof(args.pretrained_yolof)
+    logging.info(
+        f'Took {timer.end("Load Model"):.2f} seconds to load the model')
 
     net.to(DEVICE)
 
-    criterion = MultiboxLoss(config.priors, iou_threshold=0.5, neg_pos_ratio=3,
-                             center_variance=0.1, size_variance=0.2, device=DEVICE)
+    criterion = UniformLoss(config.anchors, 3, 0.7, 0.3)
+
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-    
+
+    # net, opt = amp.initialize(net, optimizer, opt_level='O1') 
     logging.info(f"Learning rate: {args.lr}, Base net learning rate: {base_net_lr}, "
                  + f"Extra Layers learning rate: {extra_layers_lr}.")
 
@@ -326,10 +335,11 @@ if __name__ == '__main__':
         logging.info("Uses MultiStepLR scheduler.")
         milestones = [int(v.strip()) for v in args.milestones.split(",")]
         scheduler = MultiStepLR(optimizer, milestones=milestones,
-                                                     gamma=0.1, last_epoch=last_epoch)
+                                gamma=0.1, last_epoch=last_epoch)
     elif args.scheduler == 'cosine':
         logging.info("Uses CosineAnnealingLR scheduler.")
-        scheduler = CosineAnnealingLR(optimizer, args.t_max, last_epoch=last_epoch)
+        scheduler = CosineAnnealingLR(
+            optimizer, args.t_max, last_epoch=last_epoch)
     else:
         logging.fatal(f"Unsupported Scheduler: {args.scheduler}.")
         parser.print_help(sys.stderr)
@@ -340,15 +350,17 @@ if __name__ == '__main__':
         scheduler.step()
         train(train_loader, net, criterion, optimizer,
               device=DEVICE, debug_steps=args.debug_steps, epoch=epoch)
-        
+
         if epoch % args.validation_epochs == 0 or epoch == args.num_epochs - 1:
-            val_loss, val_regression_loss, val_classification_loss = test(val_loader, net, criterion, DEVICE)
+            val_loss, val_reg_loss, val_cls_loss = test(
+                val_loader, net, criterion, DEVICE)
             logging.info(
                 f"Epoch: {epoch}, " +
                 f"Validation Loss: {val_loss:.4f}, " +
-                f"Validation Regression Loss {val_regression_loss:.4f}, " +
-                f"Validation Classification Loss: {val_classification_loss:.4f}"
+                f"Validation Regression Loss {val_reg_loss:.4f}, " +
+                f"Validation Classification Loss: {val_cls_loss:.4f}"
             )
-            model_path = os.path.join(args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
+            model_path = os.path.join(
+                args.checkpoint_folder, f"{args.net}-Epoch-{epoch}-Loss-{val_loss}.pth")
             net.save(model_path)
             logging.info(f"Saved model {model_path}")

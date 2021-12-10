@@ -1,8 +1,11 @@
 import collections
+from numpy import dtype
 import torch
 import itertools
 from typing import List
 import math
+
+from vision.yolof.box_regression import YOLOFBox2BoxTransform
 
 SSDBoxSizes = collections.namedtuple('SSDBoxSizes', ['min', 'max'])
 
@@ -133,35 +136,6 @@ def iou_of(boxes0, boxes1, eps=1e-5):
     area0 = area_of(boxes0[..., :2], boxes0[..., 2:])
     area1 = area_of(boxes1[..., :2], boxes1[..., 2:])
     return overlap_area / (area0 + area1 - overlap_area + eps)
-
-def assign_anchors(gt_boxes, gt_labels, center_form_anchors):
-    # print(f"gt_boxes's devices:{gt_boxes.device}")
-    # print(f"gt_labels'devices:{gt_labels.device}")
-    # print(f"center_form_anchors'device:{center_form_anchors.device}")
-    # size: num_priors x num_targets
-    cost_bbox_anchors = torch.cdist(center_form_anchors, gt_boxes, p=1)
-    # size: 4 x num_targets
-    _, f4_anchor_per_target_index = torch.topk(cost_bbox_anchors, k=4, dim=0, largest=False)
-    # print(f4_anchor_per_target_index)
-    # print(f"length of f4: {len(f4_anchor_per_target_index)}")
-    best_target_per_anchor_index = torch.zeros(len(cost_bbox_anchors), dtype=torch.int64)
-    for target_index, anchor_index in enumerate(f4_anchor_per_target_index.transpose(0,1)):
-        # print(f"anchor_index.shape: {anchor_index.shape}")
-        for i in anchor_index:
-            # print(f"i for: {i}")
-            best_target_per_anchor_index[i] = target_index
-
-    labels = torch.zeros(len(best_target_per_anchor_index), dtype=torch.int64)
-    for i,j in enumerate(best_target_per_anchor_index):
-        if j < 0:
-            labels[i] = 0
-        else:
-            labels[i] = gt_labels[j]
-
-    boxes = gt_boxes[best_target_per_anchor_index]
-    # print(labels.dtype)
-    # print(f"Postive anchor sum: {torch.sum(labels != 0)}")
-    return boxes, labels
 
 def assign_priors(gt_boxes, gt_labels, corner_form_priors,
                   iou_threshold):
@@ -306,4 +280,121 @@ def soft_nms(box_scores, score_threshold, sigma=0.5, top_k=-1):
         return torch.tensor([])
 
 
+##################################################################
+## YOLOF Box Tranformations
+##################################################################
+def assign_anchors(gt_boxes, gt_labels, center_form_anchors):
+    # print(f"gt_boxes's devices:{gt_boxes.device}")
+    # print(f"gt_labels'devices:{gt_labels.device}")
+    # print(f"center_form_anchors'device:{center_form_anchors.device}")
+    # size: num_anchors x num_targets
+    cost_bbox_anchors = torch.cdist(center_form_anchors, gt_boxes, p=1)
+    # print(f"cost_bbox_anchors' shape: {cost_bbox_anchors.shape}")
+    # size: 4 x num_targets
+    _, f4_anchor_per_target_index = torch.topk(cost_bbox_anchors, k=4, dim=0, largest=False)
+    # print(f"f4_anchor_per_target_index:{f4_anchor_per_target_index}")
+    best_target_per_anchor_index = -1 * torch.ones(len(cost_bbox_anchors), dtype=torch.int64)
+    for target_index, anchor_index in enumerate(f4_anchor_per_target_index.transpose(0,1)):
+        for i in anchor_index:
+            best_target_per_anchor_index[i] = target_index
+    # print(torch.gt(best_target_per_anchor_index, -1))
+    # print(f"best_target_per_anchor_index:{best_target_per_anchor_index.shape}")
+    labels = torch.zeros(len(best_target_per_anchor_index), dtype=torch.int64)
+    for i,j in enumerate(best_target_per_anchor_index):
+        if j < 0:
+            labels[i] = 0
+        else:
+            labels[i] = gt_labels[j]
+            # print(labels[i])
+    boxes = gt_boxes[best_target_per_anchor_index]
+    # print(boxes)
+    # print(labels)
+    # print(f"Postive anchor sum: {torch.sum(labels != 0)}")
+    return boxes, labels
 
+def get_deltas(src_boxes, target_boxes):
+    """
+        Get box regression transformation deltas (dx, dy, dw, dh) that can be
+        used to transform the `src_boxes` into the `target_boxes`. That is,
+        the relation ``target_boxes == self.apply_deltas(deltas,
+        src_boxes)`` is true (unless any delta is too large and is clamped).
+
+        Args:
+            src_boxes (Tensor): source boxes, e.g., object proposals
+            target_boxes (Tensor): target of the transformation, e.g.,
+                ground-truth boxes.
+    """
+    assert isinstance(src_boxes, torch.Tensor), type(src_boxes)
+    assert isinstance(target_boxes, torch.Tensor), type(target_boxes)
+
+    src_widths = src_boxes[..., 2] - src_boxes[..., 0]
+    src_heights = src_boxes[..., 3] - src_boxes[..., 1]
+    src_ctr_x = src_boxes[..., 0] + 0.5 * src_widths
+    src_ctr_y = src_boxes[..., 1] + 0.5 * src_heights
+
+    target_widths = target_boxes[..., 2] - target_boxes[..., 0]
+    target_heights = target_boxes[..., 3] - target_boxes[..., 1]
+    target_ctr_x = target_boxes[..., 0] + 0.5 * target_widths
+    target_ctr_y = target_boxes[..., 1] + 0.5 * target_heights
+
+    wx, wy, ww, wh = (1.0, 1.0, 1.0, 1.0)
+    dx = wx * (target_ctr_x - src_ctr_x) / src_widths
+    dy = wy * (target_ctr_y - src_ctr_y) / src_heights
+    dw = ww * torch.log(target_widths / src_widths)
+    dh = wh * torch.log(target_heights / src_heights)
+
+    deltas = torch.stack((dx, dy, dw, dh), dim=-1)
+    assert (src_widths > 0).all().item(), \
+        "Input boxes to Box2BoxTransform are not valid!"
+    return deltas
+
+def apply_deltas(deltas, boxes):
+    """
+        Apply transformation `deltas` (dx, dy, dw, dh) to `boxes`.
+
+        Args:
+            deltas (Tensor): transformation deltas of shape (N, k*4),
+                where k >= 1. deltas[i] represents k potentially different
+                class-specific box transformations for the single box boxes[i].
+            boxes (Tensor): boxes to transform, of shape (N, 4)
+    """
+    deltas = deltas.float()  # ensure fp32 for decoding precision
+    deltas = deltas.to("cpu")
+    boxes = boxes.to(deltas.dtype) ## deltas.dtype: torch.float32
+
+    widths = boxes[..., 2] - boxes[..., 0]
+    heights = boxes[..., 3] - boxes[..., 1]
+    ctr_x = boxes[..., 0] + 0.5 * widths
+    ctr_y = boxes[..., 1] + 0.5 * heights
+
+    wx, wy, ww, wh = (1.0, 1.0, 1.0, 1.0)
+    dx = deltas[..., 0::4] / wx
+    dy = deltas[..., 1::4] / wy
+    dw = deltas[..., 2::4] / ww
+    dh = deltas[..., 3::4] / wh
+
+    # Prevent sending too large values into torch.exp()
+    dx_width = dx * widths[..., None]
+    dy_height = dy * heights[..., None]
+    if True:
+        dx_width = torch.clamp(dx_width,
+                                max=32,
+                                min=-32)
+        dy_height = torch.clamp(dy_height,
+                                max=32,
+                                min=-32)
+    dw = torch.clamp(dw, max=math.log(1000.0 / 16))
+    dh = torch.clamp(dh, max=math.log(1000.0 / 16))
+
+    pred_ctr_x = dx_width + ctr_x[..., None]
+    pred_ctr_y = dy_height + ctr_y[..., None]
+    pred_w = torch.exp(dw) * widths[..., None]
+    pred_h = torch.exp(dh) * heights[..., None]
+
+    x1 = pred_ctr_x - 0.5 * pred_w
+    y1 = pred_ctr_y - 0.5 * pred_h
+    x2 = pred_ctr_x + 0.5 * pred_w
+    y2 = pred_ctr_y + 0.5 * pred_h
+    pred_boxes = torch.stack((x1, y1, x2, y2), dim=-1)
+    pred_boxes = pred_boxes.to("cuda")
+    return pred_boxes.reshape(deltas.shape)

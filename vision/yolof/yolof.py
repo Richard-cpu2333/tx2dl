@@ -37,7 +37,8 @@ class YOLOF(nn.Module):
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         if is_test:
             self.config = config
-            self.anchors = config.anchors.to(self.device)
+            # self.anchors = config.anchors.to(self.device)
+            # self.target_transform = MatchAnchor(config.anchors, config.center_variance, config.size_variance)
         # Anchors
         # self.generate_anchor = generate_anchors
         # self.box2box_transform = YOLOFBox2BoxTransform(weights=(1_0, 1_0, 1_0, 1_0), add_ctr_clamp=True, ctr_clamp=32)
@@ -45,6 +46,8 @@ class YOLOF(nn.Module):
 
 
     def forward(self, batched_inputs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        # self.labels, self.anchors = self.target_transform(num_pos = 6)
+
         num_images = len(batched_inputs)
         # print(num_images)
         # images = self.preprocess_image(batched_inputs)
@@ -52,24 +55,25 @@ class YOLOF(nn.Module):
 
         # anchors_image = self.generate_anchors(config)
         # anchors = [copy.deepcopy(anchors_image) for _ in range(num_images)]
-        pred_logits, pred_anchor_deltas = self.decoder(self.encoder(features))
-        
-        if self.is_test:
-            pred_logits = pred_logits[0]
-            pred_anchor_deltas = pred_anchor_deltas[0]
-            N = pred_logits.shape[0]
-            NUM_CLASSES = pred_logits.shape[2]
-            pred_anchor_deltas =  pred_anchor_deltas.view(-1, 4)
-            pred_anchor_deltas = pred_anchor_deltas.reshape(N, -1, 4)
+        pred_logits, pred_anchors = self.decoder(self.encoder(features))
+        # print(pred_logits.shape, pred_anchor_deltas.shape)        
 
-            pred_logits = F.softmax(pred_logits, dim=2)
-            pred_anchors = box_utils.convert_locations_to_boxes(
-                pred_anchor_deltas, self.anchors, self.config.center_variance, self.config.size_variance
-            )
-            pred_anchors = box_utils.center_form_to_corner_form(pred_anchors)
-            return pred_logits, pred_anchors
+        # if self.is_test:
+        #     pred_logits = pred_logits[0]
+        #     pred_anchor_deltas = pred_anchors[0]
+        #     N = pred_logits.shape[0]
+        #     NUM_CLASSES = pred_logits.shape[2]
+        #     pred_anchor_deltas =  pred_anchor_deltas.view(-1, 4)
+        #     pred_anchor_deltas = pred_anchor_deltas.reshape(N, -1, 4)
 
-        return pred_logits, pred_anchor_deltas
+        #     pred_logits = F.softmax(pred_logits, dim=2)
+        #     pred_anchors = box_utils.convert_locations_to_boxes(
+        #         pred_anchor_deltas, self.anchors, self.config.center_variance, self.config.size_variance
+        #     )
+        #     pred_anchors = box_utils.center_form_to_corner_form(pred_anchors)
+        #     return pred_logits, pred_anchors
+
+        return pred_logits, pred_anchors
 
     def load(self, model):
         self.load_state_dict(torch.load(model, map_location=lambda storage, loc: storage))
@@ -94,27 +98,6 @@ class YOLOF(nn.Module):
         self.backbone.apply(_xavier_init_)
         self.encoder.apply(_xavier_init_)
         self.decoder.apply(_xavier_init_)
-
-
-
-class MatchAnchor(object):
-    def __init__(self, center_form_anchors, center_variance, size_variance):
-        self.center_form_anchors = center_form_anchors
-        # print(f"center_form_anchors'device: {self.center_form_anchors.device}")
-        self.corner_form_anchors = box_utils.center_form_to_corner_form(center_form_anchors)
-        self.center_variance = center_variance
-        self.size_variance = size_variance
-
-    def __call__(self, gt_boxes, gt_labels):
-        if type(gt_boxes) is np.ndarray:
-            gt_boxes = torch.from_numpy(gt_boxes)
-            gt_boxes = box_utils.corner_form_to_center_form(gt_boxes)
-        if type(gt_labels) is np.ndarray:
-            gt_labels = torch.from_numpy(gt_labels)
-        
-        boxes, labels = box_utils.assign_anchors(gt_boxes, gt_labels, self.center_form_anchors)
-        locations = box_utils.convert_boxes_to_locations(boxes, self.center_form_anchors, self.center_variance, self.size_variance)
-        return locations, labels
 
 
 def _xavier_init_(m: nn.Module):

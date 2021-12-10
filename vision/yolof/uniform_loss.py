@@ -1,14 +1,15 @@
+from os import posix_fallocate
 import torch
 from torch.functional import Tensor
 import torch.nn as nn
 import torch.nn.functional as F
 from fvcore.nn import sigmoid_focal_loss_jit, giou_loss
 import torch.distributed as dist
-from vision.utils.box_utils import iou_of
+from vision.utils import box_utils
+from vision.utils.box_utils import assign_anchors, iou_of
 from . import comm
 from vision.yolof.box_regression import YOLOFBox2BoxTransform
 import math
-
 
 
 
@@ -23,70 +24,46 @@ def cat(tensors, dim: int = 0):
 
 
 class UniformLoss(nn.Module):
-    def __init__(self, batch_anchors, device):
+    def __init__(self, anchors, neg_pos_ratio=3, neg_ignore_thresh=0.7, pos_ignore_thresh=0.3):
         super(UniformLoss, self).__init__()
+        self.neg_pos_ratio = neg_pos_ratio
+        self.neg_ignore_thresh = neg_ignore_thresh
+        self.pos_ignore_thresh = pos_ignore_thresh
+        self.anchors = anchors
         '''
         ## pred_class_logits.shape: [32, 600, 21] 
         ## pred_anchor_deltas.shape: [32, 600, 4] 
         ## labels.shape: []
-
         '''
 
-        self.anchors = batch_anchors
-        self.device = device
+    def forward(self, pos_labels, pos_anchors, picked_labels, pred_anchor_deltas, pred_class_logits):
+        N = pred_class_logits.shape[0]
+        NUM_CLASSES = pred_class_logits.shape[2]
 
-
-    def forward(self, confidence, pred_anchor_deltas, labels, gt_boxes):
-        N = confidence.shape[0]
-        NUM_CLASSES = confidence.shape[2]
-
-        # print(f"labels.shape:{labels.shape}")  ## torch.Size([32, 600])
-        # print(f"boxes.shape:{gt_boxes.shape}")  ## torch.Size([32, 600, 4])
         # pred_class_logits = pred_class_logits.view(-1, NUM_CLASSES)
-        pred_anchor_deltas = pred_anchor_deltas.view(-1, 4)
-        
-
-        # all_anchors = [self.anchors for _ in range(N)]
-        # all_anchors = cat(all_anchors).to(self.device)  ## torch.Size([12800, 4])
-        
-        # box2box_transform = YOLOFBox2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0))
-        # pred_boxes = box2box_transform.apply_deltas(
-            # pred_anchor_deltas, all_anchors)
-        pred_boxes = pred_anchor_deltas
-        pred_boxes = pred_boxes.reshape(N, -1, 4)
-
-        # pos_mask = labels > 0
-        # pred_boxes = pred_boxes[pos_mask, :].reshape(-1, 4)
+        predicted_boxes = box_utils.apply_deltas(pred_anchor_deltas, self.anchors)
+        predicted_boxes = predicted_boxes.reshape(N, -1, 4)
+        # ignore_idx = picked_labels > self.neg_ignore_thresh
+        # pos_labels[ignore_idx] = -1
+        # pos_ignore_idx = pos_labels < self.pos_ignore_thresh
+        # pos_labels[pos_ignore_idx] = -1
+        # mask1 = pos_labels >= 0
 
         with torch.no_grad():
-            # derived from cross_entropy=sum(log(p))
-            loss = -F.log_softmax(confidence, dim=2)[:, :, 0]
-            pos_mask = labels > 0
+            # derived from cross_entropy=sum(log(p))    
+            loss = -F.log_softmax(pred_class_logits, dim=2)[:, :, 0]
 
-            num_pos = pos_mask.long().sum(dim=1, keepdim=True)
-            num_neg = num_pos * 3
-            loss[pos_mask] = -math.inf
-            _, indexes = loss.sort(dim=1, descending=True)
-            _, orders = indexes.sort(dim=1)
-            neg_mask = orders < num_neg
-            mask = pos_mask | neg_mask
+            # mask_predict = box_utils.hard_negative_mining(loss, picked_labels, self.neg_pos_ratio)
+            mask = box_utils.hard_negative_mining(loss, pos_labels, self.neg_pos_ratio)
 
-        confidence = confidence[mask, :]
+        classification_loss = F.cross_entropy(pred_class_logits[mask, :].reshape(-1, NUM_CLASSES), pos_labels[mask], size_average=False)
 
-        #loss_cls = sigmoid_focal_loss_jit(
-        #     pred_class_logits[mask],
-        #     labels[mask],
-        #     alpha=2.0,
-        #     gamma=0.25,
-        #     reduction="sum",
-        # )
         # print(f"confidence info:{confidence.dtype}") ## torch.size([12800,21]), torch.float32
         # print(f"labels info:{labels.dtype}") ## torch.Size([32, 400]), torch.int64
-        classification_loss = F.cross_entropy(confidence.reshape(-1, NUM_CLASSES), labels[mask], size_average=False)
-        pos_mask = labels > 0
-        predicted_locations = pred_boxes[pos_mask, :].reshape(-1, 4)
-        gt_locations = gt_boxes[pos_mask, :].reshape(-1, 4)
-        smooth_l1_loss = F.smooth_l1_loss(predicted_locations, gt_locations, size_average=False)
-        num_pos = gt_locations.size(0)
+        pos_mask = pos_labels > 0
+        predicted_boxes = predicted_boxes[pos_mask, :].reshape(-1, 4)
+        pos_anchors = pos_anchors[pos_mask, :].reshape(-1, 4)
+        smooth_l1_loss = F.smooth_l1_loss(predicted_boxes, pos_anchors, size_average=False)
+        num_pos = pos_anchors.size(0)
         return classification_loss/num_pos, smooth_l1_loss/num_pos
 

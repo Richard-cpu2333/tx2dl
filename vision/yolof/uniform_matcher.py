@@ -4,6 +4,9 @@ from torch import nn
 import itertools 
 import math
 
+from torch._C import device
+from vision.utils import box_utils
+
 def box_xyxy_to_cxcywh(x):
     x0, y0, x1, y1 = x.unbind(-1)
     b = [(x0 + x1) / 2, (y0 + y1) / 2,
@@ -222,3 +225,57 @@ def generate_anchors(clamp=True) -> torch.Tensor:
         torch.clamp(anchors, 0.0, 1.0, out=anchors)
     return anchors
     
+
+class MatchAnchor(object):
+    def __init__(self, center_form_anchors):
+        self.center_form_anchors = center_form_anchors
+        self.corner_form_anchors = box_utils.center_form_to_corner_form(center_form_anchors)
+
+    def __call__(self, gt_boxes, gt_labels):
+        batch_size = len(gt_boxes)
+        masked_anchor_boxes = []
+        masked_anchor_labels = []
+        masked_pred_boxes = []
+        masked_pred_labels = []
+
+        if type(gt_boxes[0]) is np.ndarray:
+            if type(gt_labels[0]) is np.ndarray:
+                if(self.center_form_anchors.device.type == "cpu"):
+                    for i in range(batch_size):
+                        gt_box = torch.from_numpy(gt_boxes[i])
+                        gt_box = box_utils.corner_form_to_center_form(gt_box)
+                        gt_label = torch.from_numpy(gt_labels[i])
+                        boxes, labels = box_utils.assign_anchors(gt_box, gt_label, self.center_form_anchors)
+                        pred_anchor_deltas = box_utils.get_deltas(self.corner_form_anchors, boxes)
+                        masked_anchor_boxes.append(torch.unsqueeze(pred_anchor_deltas, 0))
+                        masked_anchor_labels.append(torch.unsqueeze(labels, 0))
+                    boxes = torch.cat(masked_anchor_boxes, dim=0)
+                    labels = torch.cat(masked_anchor_labels, dim=0)
+                    boxes = boxes.to("cuda")
+                    labels = labels.to("cuda")
+                    # print(boxes.shape, labels.shape)
+                else:
+                    self.center_form_anchors = self.center_form_anchors.to("cpu")
+                    for i in range(batch_size):
+                        gt_box = torch.from_numpy(gt_boxes[i])
+                        gt_box = box_utils.corner_form_to_center_form(gt_box)
+                        gt_label = torch.from_numpy(gt_labels[i])
+                        boxes, labels = box_utils.assign_priors(gt_box, gt_label, self.center_form_anchors[i], 0.5)
+
+                        masked_pred_boxes.append(torch.unsqueeze(boxes, 0))
+                        masked_pred_labels.append(torch.unsqueeze(labels, 0))
+                    boxes = torch.cat(masked_pred_boxes, dim=0)
+                    labels = torch.cat(masked_pred_labels, dim=0)
+                    boxes = boxes.to("cuda")
+                    labels = labels.to("cuda")
+                    # print(boxes.shape, labels.shape)
+            else:
+                print(f"FUCK YOU!")
+                exit(1)
+        else:
+            print("FUCK YOU!")
+            exit(1)
+                
+        # locations = box_utils.convert_boxes_to_locations(boxes, self.center_form_anchors, self.center_variance, self.size_variance)
+        # return locations, labels
+        return boxes, labels
