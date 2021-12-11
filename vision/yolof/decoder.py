@@ -1,12 +1,12 @@
-## decoder with dw
-
 import math
 from typing import Tuple
 
 import torch
 import torch.nn as nn
 
-# from yolof import get_activation, get_norm
+######################################################################
+### decoder with Depth-wise Conv
+######################################################################
 
 def conv_dw(inp, oup, stride):
     return nn.Sequential(
@@ -18,6 +18,28 @@ def conv_dw(inp, oup, stride):
         nn.BatchNorm2d(oup),
         nn.ReLU(inplace=True),
         )
+
+
+
+######################################################################
+### decoder with IBN
+######################################################################
+
+# from yolof import get_activation, get_norm
+from vision.nn.mobilenet_v2 import InvertedResidual
+block = InvertedResidual
+interverted_residual_setting = [
+            # t, c, n, s
+            [1, 16, 1, 1],
+            [6, 24, 2, 2],
+            [6, 32, 3, 2],
+            [6, 64, 4, 2],
+            [6, 96, 3, 1],
+            [6, 160, 3, 2],
+            [6, 320, 1, 1],
+        ]
+
+
 
 class Decoder(nn.Module):
     """

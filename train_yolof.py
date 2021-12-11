@@ -6,6 +6,7 @@ import itertools
 # from apex.amp.scaler import axpby_check_overflow_python
 import numpy as np
 from numpy import dtype
+from numpy import core
 from numpy.core.fromnumeric import shape
 from numpy.lib.type_check import imag
 # from apex import amp
@@ -18,11 +19,11 @@ from torch.utils.data.dataset import ConcatDataset
 from vision.utils.misc import str2bool, Timer, freeze_net_layers, store_labels
 from vision.yolof.mobiledet_yolof import create_mobilenetv1_yolof, create_mobilenetv2_yolof_lite, create_mobilenetv3_large_yolof_lite, create_mobilenetv3_small_yolof_lite, create_mobiledet_yolof, create_efficientnet_yolof
 from vision.datasets.voc_dataset import VOCDataset
-from vision.yolof.config import yolof_config
+import vision.yolof.config.yolof_config as config
 from vision.yolof.data_preprocessing import PredictionTransform, TrainAugmentation, TestTransform
 
-from vision.yolof.uniform_loss import UniformLoss
-from vision.yolof.uniform_matcher import MatchAnchor
+from vision.yolof.uniform_loss import criterion
+from vision.yolof.uniform_matcher import UniformMatcher 
 
 parser = argparse.ArgumentParser(
     description='YOLOF Detector Training With Pytorch')
@@ -110,14 +111,7 @@ if args.use_cuda and torch.cuda.is_available():
     logging.info("Use Cuda.")
 
 
-def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
-    net.train(True)
-    running_loss = 0.0
-    running_regression_loss = 0.0
-    running_classification_loss = 0.0
-    for i, data in enumerate(loader):
-        images, boxes, labels = data
-        
+'''
         # print(type(boxes[0])) ## len=batch_size  <class 'numpy.ndarray'>
         # print(labels[0]) ## <class 'numpy.ndarray'>
         # images = torch.cat([torch.unsqueeze(images[i], dim=0) for i in range(len(images))]).to(device)
@@ -131,35 +125,48 @@ def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
         # labels = torch.from_numpy(np.concatenate(labels, axis=0))
         # print(f"labels' shape is: {labels.shape}")
         
-        pred_class_logits, pred_boxes = net(images)
-        pred_boxes = pred_boxes[0]               ## torch.Size([2, 400, 4]), if batch=2
-        pred_class_logits = pred_class_logits[0] ## torch.Size([2, 400, 21]), if batch=2
-        
+        pred_class_logits, pred_anchor_deltas = net(images)
+        pred_anchor_deltas = pred_anchor_deltas[0]               ## torch.Size([2, 400, 4]), if batch=2
+        pred_class_logits = pred_class_logits[0]                ## torch.Size([2, 400, 21]), if batch=2
+        # print(pred_class_logits)
+        # print(pred_anchor_deltas)
+        tt1 = MatchAnchor(pred_anchor_deltas)
+        best_target_per_anchor_index, ignore_idx = tt1(boxes, labels, None, None)
 
-        from vision.utils import box_utils
+        tt2 = MatchAnchor(config.anchors)
+        gt_boxes, gt_labels = tt2(boxes, labels, best_target_per_anchor_index, ignore_idx)
+'''      
+def train(loader, net, criterion, optimizer, device, debug_steps=100, epoch=-1):
+    net.train(True)
+    running_loss = 0.0
+    running_regression_loss = 0.0
+    running_classification_loss = 0.0
+    for i, data in enumerate(loader):
+        images, boxes, labels = data
+        images = images.to(device)
         
-        tt1 = MatchAnchor(config.anchors)
-        pos_anchors, pos_labels = tt1(boxes, labels)
+        gt_boxes = [torch.from_numpy(boxes[i]) for i in range(images.shape[0])]
+        gt_labels = [torch.from_numpy(labels[i]) for i in range(images.shape[0])]
 
-        pred_boxes = box_utils.corner_form_to_center_form(pred_boxes).float()
+        pred_class_logits, pred_anchor_deltas = net(images)
 
-        tt2 = MatchAnchor(pred_boxes)
-        pred_anchor_deltas, picked_labels = tt2(boxes, labels)
-        
-        loss_cls, loss_box_reg = criterion(pos_labels, pos_anchors, picked_labels, pred_anchor_deltas, pred_class_logits)
-        loss = loss_box_reg + loss_cls
-        if not torch.isnan(loss):
+        anchors = [config.anchors[None] for i in range(images.shape[0])]
+        matcher = UniformMatcher(4)
+        indices = matcher(pred_anchor_deltas[0], anchors, gt_boxes, gt_labels)
+        loss_cls, loss_box_reg = criterion(indices, gt_boxes, gt_labels, anchors, pred_class_logits[0], pred_anchor_deltas[0])
+        add_loss = loss_box_reg + loss_cls
+
+        if not torch.isnan(add_loss):
             # optimizer.zero_grad()
             # with amp.scale_loss(loss, opt) as scaled_loss:
             #     scaled_loss.backward()
             # # loss.backward()
             # optimizer.step()
-        
             optimizer.zero_grad()
-            loss.backward()
+            add_loss.backward()
             optimizer.step()
 
-        running_loss += loss.item()
+        running_loss += add_loss.item()
         running_regression_loss += loss_box_reg.item()
         running_classification_loss += loss_cls.item()
         if i and i % debug_steps == 0:
@@ -186,19 +193,24 @@ def test(loader, net, criterion, device):
     for _, data in enumerate(loader):
         images, boxes, labels = data
         images = images.to(device)
-        boxes = boxes.to(device)
-        labels = labels.to(device)
+        
+        gt_boxes = [torch.from_numpy(boxes[i]) for i in range(images.shape[0])]
+        gt_labels = [torch.from_numpy(labels[i]) for i in range(images.shape[0])]
         num += 1
-
         with torch.no_grad():
-            pred_logits, pred_anchor_deltas = net(images)
-            loss_cls, loss_box_reg = criterion(
-                pred_logits[0], pred_anchor_deltas[0], labels, boxes)
-            loss = loss_cls + loss_box_reg
+            pred_class_logits, pred_anchor_deltas = net(images)
+
+            anchors = [config.anchors[None] for i in range(images.shape[0])]
+            matcher = UniformMatcher(4)
+            indices = matcher(pred_anchor_deltas[0], anchors, gt_boxes, gt_labels)
+            loss_cls, loss_box_reg = criterion(indices, gt_boxes, gt_labels, anchors, pred_class_logits[0], pred_anchor_deltas[0])
+            loss = loss_box_reg + loss_cls
         running_loss += loss.item()
         running_regression_loss += loss_box_reg.item()
         running_classification_loss += loss_cls.item()
     return running_loss / num, running_regression_loss / num, running_classification_loss / num
+
+
 
 def my_collate(batch):
     # images = [item[0] for item in batch]
@@ -216,23 +228,23 @@ if __name__ == "__main__":
     logging.info(args)
     if args.net == 'mb1-yolof':
         create_net = create_mobilenetv1_yolof
-        config = yolof_config
+        config = config
     elif args.net == 'mb2-yolof-lite':
         def create_net(num): return create_mobilenetv2_yolof_lite(
             num, width_mult=args.mb2_width_mult)
-        config = yolof_config
+        config = config
     elif args.net == 'mb3-large-yolof-lite':
         def create_net(num): return create_mobilenetv3_large_yolof_lite(num)
-        config = yolof_config
+        config = config
     elif args.net == 'mb3-small-yolof-lite':
         def create_net(num): return create_mobilenetv3_small_yolof_lite(num)
-        config = yolof_config
+        config = config
     elif args.net == 'mbd-yolof':
         create_net = create_mobiledet_yolof
-        config = yolof_config
+        config = config
     elif args.net == 'ef-yolof':
         create_net = create_efficientnet_yolof
-        config = yolof_config
+        config = config
     else:
         logging.fatal("The net type is wrong.")
         parser.print_help(sys.stderr)
@@ -322,7 +334,7 @@ if __name__ == "__main__":
 
     net.to(DEVICE)
 
-    criterion = UniformLoss(config.anchors, 3, 0.7, 0.3)
+    # criterion = UniformLoss()
 
     optimizer = torch.optim.SGD(params, lr=args.lr, momentum=args.momentum,
                                 weight_decay=args.weight_decay)

@@ -55,7 +55,7 @@ def create_mobilenetv3_small_yolof_lite(num_classes, is_test=False):
 
 def create_efficientnet_yolof(num_classes, is_test=False):
     backbone = efficientnet_b0().features
-    encoder = DilatedEncoder(1280)
+    encoder = DilatedEncoder(1280) #1280:ef0,ef1; 1408:ef2, 1536:ef3
     decoder = Decoder(num_classes)
 
     return YOLOF(backbone, encoder, decoder, is_test=is_test, config=config)

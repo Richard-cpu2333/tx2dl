@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor, nn
 import torch.nn.functional as F
-# import torch.distributed as dist
+import torch.distributed as dist
 import itertools
 import copy
 import logging
@@ -14,8 +14,6 @@ from vision.nn.mobilenetv3 import test
 from .box_regression import YOLOFBox2BoxTransform
 from .uniform_matcher import UniformMatcher
 from vision.utils import box_utils
-
-__all__ = ["YOLOF", "MatchPrior"]
 
 logger = logging.getLogger(__name__)
 

@@ -44,13 +44,13 @@ class VOCDataset:
 
         else:
             logging.info("No labels file, using default VOC classes.")
-            # self.class_names = ('BACKGROUND', 'car', 'pedestrian', 'cyclist')
-            self.class_names = ('BACKGROUND',
-            'aeroplane', 'bicycle', 'bird', 'boat',
-            'bottle', 'bus', 'car', 'cat', 'chair',
-            'cow', 'diningtable', 'dog', 'horse',
-            'motorbike', 'person', 'pottedplant',
-            'sheep', 'sofa', 'train', 'tvmonitor')
+            self.class_names = ('BACKGROUND', 'car', 'pedestrian', 'cyclist')
+            # self.class_names = ('BACKGROUND',
+            # 'aeroplane', 'bicycle', 'bird', 'boat',
+            # 'bottle', 'bus', 'car', 'cat', 'chair',
+            # 'cow', 'diningtable', 'dog', 'horse',
+            # 'motorbike', 'person', 'pottedplant',
+            # 'sheep', 'sofa', 'train', 'tvmonitor')
 
 
         self.class_dict = {class_name: i for i, class_name in enumerate(self.class_names)}
@@ -120,7 +120,7 @@ class VOCDataset:
                 np.array(is_difficult, dtype=np.uint8))
 
     def _read_image(self, image_id):
-        image_file = self.root / f"JPEGImages/{image_id}.jpg" ## .jpg
+        image_file = self.root / f"JPEGImages/{image_id}.png" ## .jpg
         image = cv2.imread(str(image_file))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         return image
