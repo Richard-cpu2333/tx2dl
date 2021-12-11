@@ -286,8 +286,7 @@ if __name__ == "__main__":
         pass
     logging.info(f"validation dataset size: {len(val_dataset)}")
 
-    val_loader = DataLoader(val_dataset, args.batch_size,
-                            num_workers=args.num_workers, shuffle=False)
+    val_loader = DataLoader(val_dataset, args.batch_size, collate_fn=my_collate, num_workers=args.num_workers, shuffle=False)
 
     logging.info("Build network.")
     net = create_net(num_classes)
