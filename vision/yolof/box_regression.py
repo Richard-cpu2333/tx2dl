@@ -93,17 +93,14 @@ class YOLOFBox2BoxTransform(object):
         """
         # print(f"deltas' device:{deltas.device}") ## cuda:0
         # print(f"boxes' device:{boxes.device}") 
-        # print(f"boxes' shape:{boxes.shape}")  ## boxes' shape:torch.Size([batch_size*400, 4])
-        # print(f"deltas' shape:{deltas.shape}")  ## deltas' shape:torch.Size([batch_size*400, 4])]
+        # print(f"boxes' shape:{boxes.shape}")     ## boxes' shape:torch.Size([batch_size*400, 4])
+        # print(f"deltas' shape:{deltas.shape}")   ## deltas' shape:torch.Size([batch_size*400, 4])]
         deltas = deltas.float().to("cpu") # ensure fp32 for decoding precision
         N = deltas.shape[0]
         # boxes = torch.tile(boxes[None], [N,1,1])
         deltas = deltas.view(-1, 4)
         boxes = boxes.view(-1, 4)
         # boxes = boxes.to("cuda")
-        # print(deltas)
-        # print(f"deltas.device: {deltas.device}")
-        # print(f"boxes.device: {boxes.device}")
 
         widths = boxes[..., 2] - boxes[..., 0]
         heights = boxes[..., 3] - boxes[..., 1]

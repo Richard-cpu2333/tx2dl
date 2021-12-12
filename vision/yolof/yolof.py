@@ -12,7 +12,6 @@ from vision.nn.mobilenetv3 import test
 
 
 from .box_regression import YOLOFBox2BoxTransform
-from .uniform_matcher import UniformMatcher
 from vision.utils import box_utils
 
 logger = logging.getLogger(__name__)
@@ -35,41 +34,31 @@ class YOLOF(nn.Module):
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         if is_test:
             self.config = config
-            # self.anchors = config.anchors.to(self.device)
-            # self.target_transform = MatchAnchor(config.anchors, config.center_variance, config.size_variance)
-        # Anchors
-        # self.generate_anchor = generate_anchors
-        # self.box2box_transform = YOLOFBox2BoxTransform(weights=(1_0, 1_0, 1_0, 1_0), add_ctr_clamp=True, ctr_clamp=32)
-        # self.anchor_matcher = UniformMatcher(4)
-
 
     def forward(self, batched_inputs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        # self.labels, self.anchors = self.target_transform(num_pos = 6)
 
         num_images = len(batched_inputs)
-        # print(num_images)
-        # images = self.preprocess_image(batched_inputs)
         features = self.backbone(batched_inputs)
 
-        # anchors_image = self.generate_anchors(config)
-        # anchors = [copy.deepcopy(anchors_image) for _ in range(num_images)]
         pred_logits, pred_anchors = self.decoder(self.encoder(features))
-        # print(pred_logits.shape, pred_anchor_deltas.shape)        
 
-        # if self.is_test:
-        #     pred_logits = pred_logits[0]
-        #     pred_anchor_deltas = pred_anchors[0]
-        #     N = pred_logits.shape[0]
-        #     NUM_CLASSES = pred_logits.shape[2]
-        #     pred_anchor_deltas =  pred_anchor_deltas.view(-1, 4)
-        #     pred_anchor_deltas = pred_anchor_deltas.reshape(N, -1, 4)
+        if self.is_test:
+            pred_logits = pred_logits[0]
+            pred_anchor_deltas = pred_anchors[0]
+            N = pred_logits.shape[0]
+            NUM_CLASSES = pred_logits.shape[2]
+            pred_anchor_deltas =  pred_anchor_deltas.view(-1, 4)
+            pred_anchor_deltas = pred_anchor_deltas.reshape(N, -1, 4)
+            pred_logits = F.softmax(pred_logits, dim=2)
 
-        #     pred_logits = F.softmax(pred_logits, dim=2)
-        #     pred_anchors = box_utils.convert_locations_to_boxes(
-        #         pred_anchor_deltas, self.anchors, self.config.center_variance, self.config.size_variance
-        #     )
-        #     pred_anchors = box_utils.center_form_to_corner_form(pred_anchors)
-        #     return pred_logits, pred_anchors
+            
+            from vision.yolof.config import yolof_config as config
+
+            anchors = config.anchors.view(-1, 4)
+            box2box_transform = YOLOFBox2BoxTransform(weights=(1.0, 1.0, 1.0, 1.0))
+            pred_boxes = box2box_transform.apply_deltas(pred_anchor_deltas, anchors)
+            pred_anchors = box_utils.center_form_to_corner_form(pred_boxes)
+            return pred_logits, pred_anchors
 
         return pred_logits, pred_anchors
 

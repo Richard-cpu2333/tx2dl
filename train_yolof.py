@@ -199,7 +199,6 @@ def test(loader, net, criterion, device):
         num += 1
         with torch.no_grad():
             pred_class_logits, pred_anchor_deltas = net(images)
-
             anchors = [config.anchors[None] for i in range(images.shape[0])]
             matcher = UniformMatcher(4)
             indices = matcher(pred_anchor_deltas[0], anchors, gt_boxes, gt_labels)
